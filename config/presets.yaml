@@ -1,0 +1,249 @@
+# ============================================================
+# BCLS Joystick 预设库
+#
+#   presets：每条状态含【俯仰 0 + 滚转 1】两个通道，数据为报文原值。
+#     每通道 11 字段（7 个力曲线/限位 + 4 个固定：scale_factor/spring_force/
+#     damping_num/damping_den/force_offset，全部随预设下发，不再有协议层兜底）。
+#     18 点表 pos_pts/force_pts 渲染为 flow 并按「正半 9 + 负半 9」折成两行，
+#     与 UI 点表/报文逐位对应，可直接手改（决策 23）。
+#   两类条目（决策 17）：
+#   ① 出厂模式 state_1..state_7：builtin: true —— 不可删除、下载不回写本文件
+#   ② 用户新建：界面「新建」复制 模式6 综合力感 生成（id 自动 user_+时间戳，
+#      category: User）—— 可编辑、可删除、下载时把当前通道数据回写快照
+#
+#   - 界面增删改会全量重写本文件（原子写；文件头注释保留）
+#   - 误删/损坏：打包版由启动层从 exe 内置模板恢复（决策 16）；开发环境直接报错
+# ============================================================
+
+presets:
+- id: state_1
+  builtin: true
+  label: 模式1 摩擦力
+  category: State
+  channels:
+    0:
+      friction: 4.0
+      breakout_force: 2
+      negative_stop: -2010.0
+      positive_stop: 2010.0
+      scale_factor: 100
+      spring_force: 200
+      damping_num: 1
+      damping_den: 10
+      force_offset: 905
+      pos_pts: [0.0, 2.0, 4.0, 6.0, 8.5, 11.0, 13.5, 16.0, 18.5,
+        0.0, 2.0, 4.0, 6.0, 8.5, 11.0, 13.5, 16.0, 18.5]
+      force_pts: [1.58, 3.5, 5.42, 7.33, 12.23, 17.13, 22.02, 26.92, 31.81,
+        1.58, 3.5, 5.42, 7.33, 12.23, 17.13, 22.02, 26.92, 31.81]
+    1:
+      friction: 3.33
+      breakout_force: 2
+      negative_stop: -2173.0
+      positive_stop: 2173.0
+      scale_factor: 100
+      spring_force: 200
+      damping_num: 1
+      damping_den: 10
+      force_offset: 0
+      pos_pts: [0.0, 2.0, 5.0, 7.0, 10.0, 12.0, 15.0, 17.0, 20.0,
+        0.0, 2.0, 5.0, 7.0, 10.0, 12.0, 15.0, 17.0, 20.0]
+      force_pts: [2.0, 4.69, 8.73, 11.42, 15.46, 18.15, 22.18, 24.88, 28.91,
+        2.0, 3.5, 5.75, 7.25, 9.5, 11.0, 13.25, 14.75, 17.0]
+- id: state_2
+  builtin: true
+  label: 模式2 大突破力
+  category: State
+  channels:
+    0:
+      friction: 1.0
+      breakout_force: 5
+      negative_stop: -2010.0
+      positive_stop: 2010.0
+      scale_factor: 100
+      spring_force: 200
+      damping_num: 1
+      damping_den: 20
+      force_offset: 905
+      pos_pts: [0.0, 2.0, 4.0, 6.0, 8.5, 11.0, 13.5, 16.0, 18.5,
+        0.0, 2.0, 4.0, 6.0, 8.5, 11.0, 13.5, 16.0, 18.5]
+      force_pts: [5.0, 8.04, 11.08, 14.12, 17.92, 21.72, 25.52, 29.32, 33.12,
+        5.0, 8.04, 11.08, 14.12, 17.92, 21.72, 25.52, 29.32, 33.12]
+    1:
+      friction: 1.0
+      breakout_force: 6
+      negative_stop: -2173.0
+      positive_stop: 2173.0
+      scale_factor: 100
+      spring_force: 200
+      damping_num: 1
+      damping_den: 20
+      force_offset: 0
+      pos_pts: [0.0, 2.0, 5.0, 7.0, 10.0, 12.0, 15.0, 17.0, 20.0,
+        0.0, 2.0, 5.0, 7.0, 10.0, 12.0, 15.0, 17.0, 20.0]
+      force_pts: [6.0, 8.69, 12.73, 15.42, 19.46, 22.15, 26.18, 28.88, 32.91,
+        6.0, 7.5, 9.75, 11.25, 13.5, 15.0, 17.25, 18.75, 21.0]
+- id: state_3
+  builtin: true
+  label: 模式3 0突破力
+  category: State
+  channels:
+    0:
+      friction: 1.0
+      breakout_force: 0
+      negative_stop: -2010.0
+      positive_stop: 2010.0
+      scale_factor: 100
+      spring_force: 200
+      damping_num: 1
+      damping_den: 20
+      force_offset: 905
+      pos_pts: [0.0, 2.0, 4.0, 6.0, 8.5, 11.0, 13.5, 16.0, 18.5,
+        0.0, 2.0, 4.0, 6.0, 8.5, 11.0, 13.5, 16.0, 18.5]
+      force_pts: [0.0, 3.04, 6.08, 9.12, 12.92, 16.72, 20.52, 24.32, 28.12,
+        0.0, 3.04, 6.08, 9.12, 12.92, 16.72, 20.52, 24.32, 28.12]
+    1:
+      friction: 1.0
+      breakout_force: 0
+      negative_stop: -2173.0
+      positive_stop: 2173.0
+      scale_factor: 100
+      spring_force: 200
+      damping_num: 1
+      damping_den: 20
+      force_offset: 0
+      pos_pts: [0.0, 2.0, 5.0, 7.0, 10.0, 12.0, 15.0, 17.0, 20.0,
+        0.0, 2.0, 5.0, 7.0, 10.0, 12.0, 15.0, 17.0, 20.0]
+      force_pts: [0.0, 2.69, 6.73, 9.42, 13.46, 16.15, 20.18, 22.88, 26.91,
+        0.0, 1.5, 3.75, 5.25, 7.5, 9.0, 11.25, 12.75, 15.0]
+- id: state_4
+  builtin: true
+  label: 模式4 硬限制
+  category: State
+  channels:
+    0:
+      friction: 1.0
+      breakout_force: 2
+      negative_stop: -1467.0
+      positive_stop: 1467.0
+      scale_factor: 100
+      spring_force: 200
+      damping_num: 1
+      damping_den: 20
+      force_offset: 905
+      pos_pts: [0.0, 2.0, 4.0, 6.0, 8.5, 11.0, 13.5, 16.0, 18.5,
+        0.0, 2.0, 4.0, 6.0, 8.5, 11.0, 13.5, 16.0, 18.5]
+      force_pts: [1.58, 3.5, 5.42, 7.33, 12.23, 17.13, 22.02, 26.92, 31.81,
+        1.58, 3.5, 5.42, 7.33, 12.23, 17.13, 22.02, 26.92, 31.81]
+    1:
+      friction: 1.0
+      breakout_force: 6
+      negative_stop: -1631.0
+      positive_stop: 1631.0
+      scale_factor: 100
+      spring_force: 200
+      damping_num: 1
+      damping_den: 20
+      force_offset: 0
+      pos_pts: [0.0, 2.0, 5.0, 7.0, 10.0, 12.0, 15.0, 17.0, 20.0,
+        0.0, 2.0, 5.0, 7.0, 10.0, 12.0, 15.0, 17.0, 20.0]
+      force_pts: [6.0, 8.69, 12.73, 15.42, 19.46, 22.15, 26.18, 28.88, 32.91,
+        6.0, 8.69, 12.73, 15.42, 19.46, 22.15, 26.18, 28.88, 32.91]
+- id: state_5
+  builtin: true
+  label: 模式5 非线性梯度
+  category: State
+  channels:
+    0:
+      friction: 1.0
+      breakout_force: 2
+      negative_stop: -2010.0
+      positive_stop: 2010.0
+      scale_factor: 100
+      spring_force: 200
+      damping_num: 1
+      damping_den: 20
+      force_offset: 905
+      pos_pts: [0.0, 2.0, 4.0, 6.0, 8.5, 11.0, 13.5, 16.0, 18.5,
+        0.0, 2.0, 4.0, 6.0, 8.5, 11.0, 13.5, 16.0, 18.5]
+      force_pts: [1.58, 3.5, 5.42, 7.33, 12.23, 17.13, 22.02, 26.92, 31.81,
+        1.58, 3.5, 5.42, 7.33, 12.23, 17.13, 22.02, 26.92, 31.81]
+    1:
+      friction: 1.0
+      breakout_force: 6
+      negative_stop: -2173.0
+      positive_stop: 2173.0
+      scale_factor: 100
+      spring_force: 300
+      damping_num: 1
+      damping_den: 20
+      force_offset: 0
+      pos_pts: [0.0, 2.0, 5.0, 7.0, 10.0, 12.0, 15.0, 17.0, 20.0,
+        0.0, 2.0, 5.0, 7.0, 10.0, 12.0, 15.0, 17.0, 20.0]
+      force_pts: [6.0, 7.5, 9.75, 11.25, 13.5, 16.5, 21.0, 24.0, 28.5,
+        6.0, 7.5, 9.75, 11.25, 13.5, 16.5, 21.0, 24.0, 28.5]
+- id: state_6
+  builtin: true
+  label: 模式6 组合模式
+  category: State
+  channels:
+    0:
+      friction: 4.0
+      breakout_force: 2
+      negative_stop: -1467.0
+      positive_stop: 1467.0
+      scale_factor: 100
+      spring_force: 200
+      damping_num: 1
+      damping_den: 20
+      force_offset: 905
+      pos_pts: [0.0, 2.0, 4.0, 5.0, 6.0, 8.0, 10.0, 11.0, 13.5,
+        0.0, 2.0, 4.0, 5.0, 6.0, 8.0, 10.0, 11.0, 13.5]
+      force_pts: [1.58, 3.5, 5.42, 6.37, 7.33, 12.554, 17.778, 20.39, 26.92,
+        1.58, 3.5, 5.42, 6.37, 7.33, 12.554, 17.778, 20.39, 26.92]
+    1:
+      friction: 4.0
+      breakout_force: 6
+      negative_stop: -1631.0
+      positive_stop: 1631.0
+      scale_factor: 100
+      spring_force: 300
+      damping_num: 1
+      damping_den: 20
+      force_offset: 0
+      pos_pts: [0.0, 2.0, 4.0, 6.0, 7.0, 9.0, 11.0, 13.0, 15.0,
+        0.0, 2.0, 4.0, 6.0, 7.0, 9.0, 11.0, 13.0, 15.0]
+      force_pts: [6.0, 7.5, 9.0, 10.5, 11.25, 13.9455, 16.6375, 19.3295, 22.0215,
+        6.0, 7.5, 9.0, 10.5, 11.25, 13.9455, 16.6375, 19.3295, 22.0215]
+- id: state_7
+  builtin: true
+  label: 模式7 空行程
+  category: State
+  channels:
+    0:
+      friction: 1.0
+      breakout_force: 0
+      negative_stop: -2173.0
+      positive_stop: 2173.0
+      scale_factor: 100
+      spring_force: 200
+      damping_num: 1
+      damping_den: 20
+      force_offset: 905
+      pos_pts: [0.0, 2.0, 4.0, 6.0, 8.5, 11.0, 13.5, 16.0, 18.5,
+        0.0, 2.0, 4.0, 6.0, 8.5, 11.0, 13.5, 16.0, 18.5]
+      force_pts: [0.0, 0.0, 0.0, 3.04, 6.84, 10.64, 14.44, 18.24, 22.04,
+        0.0, 0.0, 0.0, 3.04, 6.84, 10.64, 14.44, 18.24, 22.04]
+    1:
+      friction: 1.0
+      breakout_force: 0
+      negative_stop: -2173.0
+      positive_stop: 2173.0
+      scale_factor: 100
+      spring_force: 200
+      damping_num: 1
+      damping_den: 20
+      force_offset: 0
+      pos_pts: [0.0, 2.0, 5.0, 7.0, 10.0, 12.0, 15.0, 17.0, 20.0,
+        0.0, 2.0, 5.0, 7.0, 10.0, 12.0, 15.0, 17.0, 20.0]
+      force_pts: [0.0, 0.0, 0.0, 2.0, 5.0, 7.0, 10.0, 12.0, 15.0,
+        0.0, 0.0, 0.0, 2.0, 5.0, 7.0, 10.0, 12.0, 15.0]

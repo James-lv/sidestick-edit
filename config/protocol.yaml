@@ -1,0 +1,68 @@
+# ============================================================
+# BCLS Joystick - 协议与网络配置
+# ------------------------------------------------------------
+# 可改：unit / zh / IP端口（显示精度由 UI 统一规则决定，不在配置里配）
+# 勿动：字段增删、type、count、顺序（必须与控制器 C++ struct 同步）
+# struct 格式串由 packets.py 运行时生成，禁止手写
+# ============================================================
+
+# 本机单 socket（绑定 local_port）收发共用；target_* 为控制器端
+# 临时换地址：python main.py --target-ip x.x.x.x
+network:
+  target_ip:    "127.0.0.1"  # 控制器 IP
+  target_port:  9300  # 控制器收包端口
+  local_ip:     "127.0.0.1"  # 本机绑定 IP（0.0.0.0 = 任一网卡）
+  local_port:   9200  # 本机端口（收发共用）
+
+# 两通道标识常量（报文字段，随通道固定——选通道用，不是可调发送参数）
+channel_ids:
+  - {index: 0, name: "俯仰", axis: 1}
+  - {index: 1, name: "滚转", axis: 2}
+
+# ⚠️ 原 send_defaults（scaling/tanhuang/zuni1/zuni2/showbili/rwa_nihe）已删除：
+#    所有 send 包字段值均由 preset_store 提供（presets.yaml 每通道 12 字段），
+#    只有点击 Download/发送才组包发出，协议层不再有默认值兜底（决策：填充好才发送）。
+
+# ============================================================
+# 结构体（与 C++ CommunicationPackets.h 逐字段一致，pack(1) 小端）
+# 字段：{name, type, count, unit, zh}；zh 为空 = 内部字段（显示精度由 UI 统一规则决定，不在此配置）
+# ============================================================
+structs:
+  UDP_UI_Send_To_Controller_Parameter:      # 参数包 182B
+    # 字段顺序按功能分组：① 控制位 → ② 18点曲线 → ③ 比例因子 → ④ 工艺参数
+    # C++ 控制器侧需同步重排字段顺序，包大小仍 182B
+    fields:
+      - {name: "host_mode",       type: "bool",  unit: "-",   zh: "主机标志"}   # 作为主机开关（仅随包携带，不影响参数发送）
+      - {name: "axis",            type: "int8",  unit: "-",   zh: ""}           # 通道选择：1=俯仰 2=滚转
+      - {name: "zero_calib",      type: "bool",  unit: "-",   zh: "校零"}       # 鼠标按下=1、抬起=0（脉冲）
+      - {name: "control_mode",    type: "int8",  unit: "-",   zh: "控制模式"}   # 0=OFF 1=抖杆 2=脉冲 3=倍脉冲 4=扫频 5=正弦 6=阶跃
+      - {name: "pos_pts",         type: "float", count: 18, unit: "deg", zh: "拟合位置"}  # 先发正方向9点，再发负方向9点，均为绝对值（下发给侧杆的力感点）
+      - {name: "force_pts",       type: "float", count: 18, unit: "N",   zh: "拟合力值"}  # 侧杆力感模拟曲线对应的力值
+      - {name: "scale_factor",    type: "int32", unit: "-",   zh: "比例因子"}
+      - {name: "friction",        type: "float", unit: "N",   zh: "摩擦力"}
+      - {name: "breakout_force",  type: "int32", unit: "N",   zh: "启动力"}
+      - {name: "spring_force",    type: "int32", unit: "-",   zh: "弹簧力"}
+      - {name: "damping_num",     type: "int32", unit: "-",   zh: "阻尼分子"}
+      - {name: "damping_den",     type: "int32", unit: "-",   zh: "阻尼分母"}
+      - {name: "negative_stop",   type: "float", unit: "脉冲", zh: "负限位"}
+      - {name: "positive_stop",   type: "float", unit: "脉冲", zh: "正限位"}
+      - {name: "force_offset",    type: "int32", unit: "-",   zh: "力偏置"}
+
+  FromController_Periodical_Channel:        # 周期回传，每通道 8B
+    fields:
+      - {name: "Position",      type: "float", unit: "deg", zh: "位置"}
+      - {name: "LoadCellForce", type: "float", unit: "N",   zh: "力值"}
+
+# ============================================================
+# 数据包
+# ============================================================
+packets:
+  send:                          # UI → 控制器：182B 参数包（整个结构体一次发出）
+    repeat: once                 # 默认值/换算表为代码常量：packets.SEND_FIXED / CURVE_SOURCES
+    layout:
+      - UDP_UI_Send_To_Controller_Parameter
+
+  recv:                          # 控制器 → UI：16B 周期帧（每通道 8B × 2 通道）
+    repeat: all_channels         # 按通道数重复（固定 2 通道）
+    layout:
+      - FromController_Periodical_Channel

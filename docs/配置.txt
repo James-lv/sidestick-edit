@@ -1,0 +1,236 @@
+struct UDP_UI_Send_To_Controller_Parameter
+{
+    int8_t         axis                ;
+    int16_t        scaling             ;
+    float          Friction            ;
+    float          LoadCellForce[18]   ;
+    float          Position[18]        ;
+    float          NegativeStop        ;
+    float          PositiveStop        ;
+    bool           zore                ;//校限
+    bool           shark               ;
+    bool           control             ;
+    int            tanhuang            ;//弹簧
+    int            zuni1               ;//阻尼分子
+    int            zuni2               ;//阻尼分母
+    int            Breakout            ;//启动力
+    float          showbili            ;
+    bool           rwa_nihe            ;
+    int            forceoffset            ;
+};
+
+
+
+模式1 摩擦力
+俯仰：
+轴：     axis  = 1
+比例：   scale_val     = 100    
+摩擦：   friction_val  = 4
+正向力值：pos_values    = [1.580,3.500,5.420,7.330,12.230,17.130,22.020, 26.920,31.810]
+负向力值：neg_values    = [1.580,3.500,5.420,7.330,12.230,17.130,22.020, 26.920,31.810]
+正位置： positions_pos = [0、2、4、6、8.5、11、13.5、16、18.5]
+负位置： positions_neg = [0、2、4、6、8.5、11、13.5、16、18.5]
+轴范围： axrange_val   = [-2010, 2010]
+弹簧力：  spring_value  = 200
+阻尼：   damp_vlue     = [1, 10]
+目标力矩：targettor     = 1
+力偏置：  forceoff      = 905
+ 
+滚转：
+轴：    axis  = 2
+比例：   scale_val     = 100
+摩擦：   friction_val  = 3.33
+正向力值：pos_values    = [2, 4.69, 8.73, 11.42, 15.46, 18.15, 22.18, 24.88, 28.91]
+负向力值：neg_values    = [2.00, 3.50, 5.75, 7.25, 9.50, 11.00, 13.25, 14.75, 17.00]
+正位置： positions_pos = [0、2、5、7、10、12、15、17、20]
+负位置： positions_neg = [0、2、5、7、10、12、15、17、20]
+轴范围： axrange_val   = [-2173, 2173]
+弹簧力： spring_value  = 200
+阻尼：   damp_vlue     = [1, 10]
+目标力矩：targettor     = 1
+力偏置： forceoff      = 0
+
+
+
+
+模式2 大突破力
+俯仰：
+轴：    axis  = 1
+比例：   scale_val     = 100    
+摩擦：   friction_val  = 1
+正向力值：pos_values    = [5，8.04，11.08，14.12，17.92，21.72，25.52，29.32，33.12]
+负向力值：neg_values    = [5，8.04，11.08，14.12，17.92，21.72，25.52，29.32，33.12]
+正位置： positions_pos = [0、2、4、6、8.5、11、13.5、16、18.5]
+负位置： positions_neg = [0、2、4、6、8.5、11、13.5、16、18.5]
+轴范围： axrange_val   = [-2010, 2010]
+弹簧力： spring_value  = 200
+阻尼：   damp_vlue     = [1, 20]
+目标力矩：targettor     = 1
+力偏置： forceoff      = 905
+ 
+滚转：
+轴：    axis  = 2
+比例：   scale_val     = 100
+摩擦：   friction_val  = 1
+正向力值：pos_values    = [6,8.69,12.73,15.42,19.46,22.15,26.18, 28.88,32.91]
+负向力值：neg_values    = [6.00，7.50，9.75，11.25，13.50，15.00，17.25，18.75，21.0]
+正位置： positions_pos = [0、2、5、7、10、12、15、17、20]
+负位置： positions_neg = [0、2、5、7、10、12、15、17、20]
+轴范围： axrange_val   = [-2173, 2173]
+弹簧力： spring_value  = 200
+阻尼：   damp_vlue     = [1, 20]
+目标力矩：targettor     = 1
+力偏置： forceoff      = 0
+
+
+模式3 0突破力
+俯仰：
+轴：    axis  = 1
+比例：   scale_val     = 100    
+摩擦：   friction_val  = 1
+正向力值：pos_values    = [0，3.04，6.08，9.12，12.92，16.72，20.52，24.32，28.12]
+负向力值：neg_values    = [0，3.04，6.08，9.12，12.92，16.72，20.52，24.32，28.12]
+正位置： positions_pos = [0、2、4、6、8.5、11、13.5、16、18.5]
+负位置： positions_neg = [0、2、4、6、8.5、11、13.5、16、18.5]
+轴范围： axrange_val   = [-2010, 2010]
+弹簧力： spring_value  = 200
+阻尼：   damp_vlue     = [1, 20]
+目标力矩：targettor     = 1
+力偏置： forceoff      = 905
+ 
+滚转：
+轴：    axis  = 2
+比例：   scale_val     = 100
+摩擦：   friction_val  = 1
+正向力值：pos_values    = [0, 2.69, 6.73, 9.42, 13.46, 16.15, 20.18, 22.88, 26.91]
+负向力值：neg_values    = [0, 1.50, 3.75, 5.25, 7.50, 9.00, 11.25, 12.75, 15.00]
+正位置： positions_pos = [0、2、5、7、10、12、15、17、20]
+负位置： positions_neg = [0、2、5、7、10、12、15、17、20]
+轴范围： axrange_val   = [-2173, 2173]
+弹簧力： spring_value  = 200
+阻尼：   damp_vlue     = [1, 20]
+目标力矩：targettor     = 1
+力偏置： forceoff      = 0
+
+模式4 硬限制
+俯仰：
+轴：    axis  = 1
+比例：   scale_val     = 100    
+摩擦：   friction_val  = 1
+正向力值：pos_values    = [1.580,3.500,5.420,7.330,12.230,17.130,22.020, 26.920,31.810]
+负向力值：neg_values    = [1.580,3.500,5.420,7.330,12.230,17.130,22.020, 26.920,31.810]
+正位置： positions_pos = [0、2、4、6、8.5、11、13.5、16、18.5]
+负位置： positions_neg = [0、2、4、6、8.5、11、13.5、16、18.5]
+轴范围： axrange_val   = [-1467, 1467]
+弹簧力： spring_value  = 200
+阻尼：   damp_vlue     = [1, 20]
+目标力矩：targettor     = 1
+力偏置： forceoff      = 905
+ 
+滚转：
+轴：    axis  = 2
+比例：   scale_val     = 100
+摩擦：   friction_val  = 1
+正向力值：pos_values    = [6,8.69,12.73,15.42,19.46,22.15,26.18, 28.88,32.91]
+负向力值：neg_values    = [6,8.69,12.73,15.42,19.46,22.15,26.18, 28.88,32.91]
+正位置： positions_pos = [0、2、5、7、10、12、15、17、20]
+负位置： positions_neg = [0、2、5、7、10、12、15、17、20]
+轴范围： axrange_val   = [-1631, 1631]
+弹簧力： spring_value  = 200
+阻尼：   damp_vlue     = [1, 20]
+目标力矩：targettor     = 1
+力偏置： forceoff      = 0
+
+
+
+
+
+模式5 非线性梯度
+俯仰：
+轴：    axis  = 1
+比例：   scale_val     = 100    
+摩擦：   friction_val  = 1
+正向力值：pos_values    = [1.580,3.500,5.420,7.330,12.230,17.130,22.020, 26.920,31.810]
+负向力值：neg_values    = [1.580,3.500,5.420,7.330,12.230,17.130,22.020, 26.920,31.810]
+正位置： positions_pos = [0、2、4、6、8.5、11、13.5、16、18.5]
+负位置： positions_neg = [0、2、4、6、8.5、11、13.5、16、18.5]
+轴范围： axrange_val   = [-2010, 2010]
+弹簧力： spring_value  = 200
+阻尼：   damp_vlue     = [1, 20]
+目标力矩：targettor     = 240
+力偏置： forceoff      = 905
+ 
+滚转：
+轴：    axis  = 2
+比例：   scale_val     = 100
+摩擦：   friction_val  = 1
+正向力值：pos_values    = [6,7.5,9.75,11.25,13.5,16.5,21, 24,28.5]
+负向力值：neg_values    = [6,7.5,9.75,11.25,13.5,16.5,21, 24,28.5]
+正位置： positions_pos = [0、2、5、7、10、12、15、17、20]
+负位置： positions_neg = [0、2、5、7、10、12、15、17、20]
+轴范围： axrange_val   = [-2173, 2173]
+弹簧力： spring_value  = 300
+阻尼：   damp_vlue     = [1, 20]
+目标力矩：targettor     = 390
+力偏置： forceoff      = 0
+
+
+模式6 摩擦、启动力、非线性梯度和硬限制组合
+俯仰：
+轴：    axis  = 1
+比例：   scale_val     = 100    
+摩擦：   friction_val  = 4
+正向力值：pos_values    = [1.580,3.500,5.420,6.37,7.330,12.554,17.778,20.39,26.92]
+负向力值：neg_values    = [1.580,3.500,5.420,6.37,7.330,12.554,17.778,20.39,26.92]
+正位置： positions_pos = [0、2、4、5、6、8、10、11,13.5]
+负位置： positions_neg = [0、1、3、5、6、8、10、11,13.5]
+轴范围： axrange_val   = [-1467, 1467]
+弹簧力： spring_value  = 200
+阻尼：   damp_vlue     = [1, 20]
+目标力矩：targettor     = 240
+力偏置： forceoff      = 905
+ 
+滚转：
+轴：    axis  = 2
+比例：   scale_val     = 100
+摩擦：   friction_val  = 4
+正向力值：pos_values    =[6,7.5,9,10.5,11.25,13.9455,16.6375,19.3295,22.0215] 
+负向力值：neg_values    =[6,7.5,9,10.5,11.25,13.9455,16.6375,19.3295,22.0215]
+正位置： positions_pos =[0、2、4,6、7、9、11、13,15]
+负位置： positions_neg =[0、2、4,6、7、9、11、13,15] 
+轴范围： axrange_val   = [-1631, 1631]
+弹簧力： spring_value  = 300
+阻尼：   damp_vlue     = [1, 20]
+目标力矩：targettor     = 390
+力偏置： forceoff      = 0
+
+
+
+模式7 空行程
+俯仰：
+轴：    axis  = 1
+比例：   scale_val     = 100    
+摩擦：   friction_val  = 1
+正向力值：pos_values    = [0，0，0，3.04, 6.84, 10.64, 14.44, 18.24, 22.04]
+负向力值：neg_values    = [0，0，0，3.04, 6.84, 10.64, 14.44, 18.24, 22.04]
+正位置： positions_pos = [0、2、4、6、8.5、11、13.5、16、18.5]
+负位置： positions_neg = [0、2、4、6、8.5、11、13.5、16、18.5]
+轴范围： axrange_val   = [-2173, 2173]
+弹簧力： spring_value  = 200
+阻尼：   damp_vlue     = [1, 20]
+目标力矩：targettor     = 1
+力偏置： forceoff      = 905
+ 
+滚转：
+轴：    axis  = 2
+比例：   scale_val     = 100
+摩擦：   friction_val  = 1
+正向力值：pos_values    = [0, 0, 0, 2, 5, 7, 10, 12, 15]
+负向力值：neg_values    = [0, 0, 0, 2, 5, 7, 10, 12, 15]
+正位置： positions_pos = [0、2、5、7、10、12、15、17、20]
+负位置： positions_neg = [0、2、5、7、10、12、15、17、20]
+轴范围： axrange_val   = [-2173, 2173]
+弹簧力： spring_value  = 200
+阻尼：   damp_vlue     = [1, 20]
+目标力矩：targettor     = 1
+力偏置： forceoff      = 0
