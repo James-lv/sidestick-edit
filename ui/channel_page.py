@@ -303,7 +303,7 @@ class ChannelPage(QWidget):
             "QPushButton#back_%d:pressed {"
             "  background-color: #1e5fc4;"
             "}"
-            "}" % (self._ch, self._ch, self._ch)
+            % (self._ch, self._ch, self._ch)
         )
         back_btn.clicked.connect(self._back_callback)
         self._back_btn = back_btn

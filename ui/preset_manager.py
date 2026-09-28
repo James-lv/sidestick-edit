@@ -49,6 +49,7 @@ class PresetManagerPage(QWidget):
         # ---- 左：预设列表 ------------------------------------------
         self._tree = QTreeWidget(self)
         self._tree.setHeaderLabels(["预设"])
+        self._tree.setHeaderHidden(True)
         self._tree.setRootIsDecorated(True)
         self._tree.setAlternatingRowColors(True)
         self._tree.setSelectionMode(QAbstractItemView.SingleSelection)

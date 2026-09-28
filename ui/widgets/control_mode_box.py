@@ -13,7 +13,8 @@
 """
 
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtWidgets import QGroupBox, QHBoxLayout, QLineEdit, QLabel, QVBoxLayout, QPushButton, QWidget
+from PyQt5.QtWidgets import (QGroupBox, QHBoxLayout, QLineEdit, QLabel,
+                             QVBoxLayout, QPushButton, QSizePolicy, QWidget)
 
 
 class ControlModeBox(QGroupBox):
@@ -85,7 +86,6 @@ class ControlModeBox(QGroupBox):
             "  background-color: #d6ebff;"
             "  color: #1c5fb3;"
             "  border: 1px solid #5a93e6;"
-            "  box-shadow: inset 0 0 0 1px rgba(90, 147, 230, 0.3);"
             "}"
             "QGroupBox#ModeContainer QPushButton:disabled {"
             "  background: #f0f0f0;"
@@ -110,11 +110,14 @@ class ControlModeBox(QGroupBox):
         )
 
         layout = QVBoxLayout(self)
-        layout.setSpacing(2)
+        layout.setSpacing(10)
         layout.setContentsMargins(12, 20, 12, 8)
+        layout.setAlignment(Qt.AlignTop)
 
         for mode, label in self._BUTTONS:
             row = QWidget(self)
+            row.setFixedHeight(36)
+            row.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             h = QHBoxLayout(row)
             h.setContentsMargins(0, 0, 0, 0)
             h.setSpacing(4)
@@ -158,7 +161,7 @@ class ControlModeBox(QGroupBox):
             h.addWidget(freq_edit)
 
             h.addStretch(1)
-            layout.addWidget(row)
+            layout.addWidget(row, 0, Qt.AlignTop)
             self._buttons[mode] = btn
             self._amp_inputs[mode] = amp_edit
             self._freq_inputs[mode] = freq_edit

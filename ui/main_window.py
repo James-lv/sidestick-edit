@@ -104,8 +104,8 @@ class MainWindow(QMainWindow):
             "  color: #3a3a3a;"
             "  border: 1px solid #cfe0ee;"
             "  border-radius: 8px 8px 0px 0px;"
-            "  padding: 8px 26px;"
-            "  font-size: 17px;"
+            "  padding: 4px 26px;"
+            "  font-size: 18px;"
             "  min-height: 28px;"
             "  margin: 0px;"
             "}"
@@ -113,14 +113,14 @@ class MainWindow(QMainWindow):
             "  background-color: #ffffff;"
             "  color: #1a1a1a;"
             "  border: 1px solid #cfe0ee;"
-            "  border-bottom: 1px solid #ffffff;"
+            "  border-bottom: 1px solid #cfe0ee;"
             "}"
             "QPushButton:pressed {"
             "  background-color: #dfeefb;"
             "}"
         )
         layout = QHBoxLayout(container)
-        layout.setContentsMargins(10, 6, 10, 0)
+        layout.setContentsMargins(10, 2, 10, 2)
         layout.setSpacing(0)
 
         self._preset_tab_btn = QPushButton("预设", container)
