@@ -101,6 +101,9 @@ class TestMainWindow(unittest.TestCase):
 
         self.assertEqual(self.win._stack.currentIndex(), MainWindow.PAGE_EDITOR)
         self.assertTrue(self.win._editor_page.channel_pages()[0]._back_btn.isVisible())
+        self.assertTrue(self.win._preset_name.isVisible())
+        self.assertEqual(self.win._preset_name.text(),
+                 "当前模式：%s" % preset.get("label", preset["id"]))
         # 编辑页已加载该预设（俯仰/滚转两通道）
         self.assertEqual(self.backend.get_editing_preset_id(), preset["id"])
 
@@ -110,6 +113,7 @@ class TestMainWindow(unittest.TestCase):
         QApplication.instance().processEvents()
 
         self.assertEqual(self.win._stack.currentIndex(), MainWindow.PAGE_PRESETS)
+        self.assertFalse(self.win._preset_name.isVisible())
 
     def test_test_button_opens_test_page(self):
         self.win._preset_page._on_test()

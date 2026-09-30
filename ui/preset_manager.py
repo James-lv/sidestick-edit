@@ -15,7 +15,7 @@
     - 编辑 / 双击：加载预设到编辑态（俯仰+滚转，标蓝不发送）→ emit edit_requested 切编辑页。
     - 删除：确认后删除用户新建；出厂（builtin）预设后端拒绝，界面按钮禁用。
     - 下载：backend.download_preset(id)（发送不写文件）。
-    - 改名：仅在 User 分组行内编辑 label（builtin 行只读），触发 update_preset。
+    - 改名：同一 User 分组行连续右击两次进入行内编辑（builtin 行只读），触发 update_preset。
 """
 
 from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
@@ -25,6 +25,28 @@ from PyQt5.QtWidgets import (QAbstractItemView, QGridLayout, QGroupBox, QHBoxLay
 
 from core.backend import USER_CATEGORY
 from core.format import format_value
+
+
+class _PresetTree(QTreeWidget):
+    """支持慢速连续右击进入用户预设名称编辑。"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._last_right_clicked_item = None
+
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+        if event.button() != Qt.RightButton:
+            return
+        item = self.itemAt(event.pos())
+        if item is None or not (item.flags() & Qt.ItemIsEditable):
+            self._last_right_clicked_item = None
+            return
+        if item is self._last_right_clicked_item:
+            self.editItem(item, 0)
+            self._last_right_clicked_item = None
+        else:
+            self._last_right_clicked_item = item
 
 
 class PresetManagerPage(QWidget):
@@ -47,7 +69,7 @@ class PresetManagerPage(QWidget):
         root.setSpacing(10)
 
         # ---- 左：预设列表 ------------------------------------------
-        self._tree = QTreeWidget(self)
+        self._tree = _PresetTree(self)
         self._tree.setHeaderLabels(["预设"])
         self._tree.setHeaderHidden(True)
         self._tree.setRootIsDecorated(True)
@@ -205,7 +227,7 @@ class PresetManagerPage(QWidget):
             return
         self.refresh_list()
         self.select_id(new_id)
-        # 保持在预设管理页，只创建并选中新预设
+        # 保持在预设管理页，名称通过同一行连续两次右击修改
 
     def _on_edit(self):
         self._edit_current()

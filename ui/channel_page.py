@@ -44,6 +44,17 @@ _COLOR_LEAD = (255, 0, 0)             # 当前点标记：红圈
 #: 遥测去抖阈值（位置/力的浮点抖动不视为"变化"，避免误加点）
 _TELEMETRY_EPS = 1e-4
 
+_PARAM_TOOLTIPS = {
+    "scale_factor": "整体缩放侧杆输出的力感强度。",
+    "spring_force": "设置侧杆回中弹簧的基础力感。",
+    "damping": "设置侧杆运动时的阻尼强度，阻尼系数由分子除以分母得到。",
+    "friction": "设置侧杆运动时用于克服静摩擦的力。",
+    "negative_stop": "设置侧杆负方向的行程限制位置。",
+    "positive_stop": "设置侧杆正方向的行程限制位置。",
+    "breakout_force": "设置侧杆开始脱离静止状态所需的最小力。",
+    "force_offset": "设置输出力的固定偏置，用于补偿零点误差。",
+}
+
 
 class ChannelPage(QWidget):
     """单个通道的编辑页。"""
@@ -144,6 +155,7 @@ class ChannelPage(QWidget):
         label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         label.setObjectName("ParamLabel")
         label.setFixedWidth(100)
+        label.setToolTip(_PARAM_TOOLTIPS.get(name, ""))
 
         edit = QLineEdit()
         edit.setObjectName("param_%s" % name)
@@ -172,6 +184,7 @@ class ChannelPage(QWidget):
         label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         label.setObjectName("ParamLabel")
         label.setFixedWidth(100)
+        label.setToolTip(_PARAM_TOOLTIPS["damping"])
 
         edits_box = QHBoxLayout()
         edits_box.setSpacing(8)

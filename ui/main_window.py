@@ -231,6 +231,10 @@ class MainWindow(QMainWindow):
         self._title = QLabel("侧杆编辑界面", bar)
         self._title.setObjectName("BarTitle")
         layout.addWidget(self._title)
+        self._preset_name = QLabel(bar)
+        self._preset_name.setObjectName("CurrentPresetName")
+        self._preset_name.hide()
+        layout.addWidget(self._preset_name)
         layout.addStretch(1)
 
         # 右侧：网络连接 = 指示灯 + 文字（非按钮，对齐 MoogStyle）
@@ -286,11 +290,16 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot(int)
     def _on_page_changed(self, index):
-        pass
+        self._preset_name.setVisible(index == self.PAGE_EDITOR)
 
     @pyqtSlot(str)
     def _on_edit_requested(self, preset_id):
         # 进入编辑页前，全量刷新所有通道（编辑态已由 load_preset 更新）
+        preset = next((p for p in self._backend.get_presets()
+                       if p["id"] == preset_id), None)
+        self._preset_name.setText(
+            "当前模式：%s" % (preset.get("label", preset_id)
+                              if preset is not None else preset_id))
         self._editor_page.refresh_all()
         self._stack.setCurrentIndex(self.PAGE_EDITOR)
         self._editor_page.fit_current()     # 决策 #26：上层进入后曲线自动自适应

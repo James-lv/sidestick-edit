@@ -91,6 +91,22 @@ class TestPresetManagerPage(unittest.TestCase):
         self.assertTrue(new_id.startswith("user_"))
         self.assertEqual(received, [])
         self.assertEqual(self.page._current_id(), new_id)
+        self.assertIs(self.page._tree.currentItem(), self.page._item_by_id[new_id])
+
+    def test_new_preset_name_can_be_renamed(self):
+        self.page._on_new()
+        QApplication.instance().processEvents()
+
+        item = self.page._tree.currentItem()
+        preset_id = self.page._current_id()
+        item.setText(0, "我的力感模式")
+        QApplication.instance().processEvents()
+
+        preset = next(p for p in self.backend.get_presets()
+                      if p["id"] == preset_id)
+        self.assertEqual(preset["label"], "我的力感模式")
+        self.assertIn("label: 我的力感模式",
+                      self.presets_path.read_text(encoding="utf-8"))
 
     def test_telemetry_updates_status_labels(self):
         self.backend.telemetry_received.emit({
