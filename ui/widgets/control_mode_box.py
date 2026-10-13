@@ -30,6 +30,20 @@ class ControlModeBox(QGroupBox):
         (6, "阶跃"),
     ]
 
+    _MODE_DETAILS = {
+        1: ("100.0", "10.0", "抖杆：幅值 100.0，频率 10.0 Hz。"),
+        2: ("0.5", "0.5", "脉冲：+0.5 持续 1 秒、归零 1 秒，按 2 秒周期重复（0.5 Hz）。"),
+        3: (
+            "0.5",
+            "0",
+            "倍脉冲：0–1 秒 +0.5，1–2 秒为 0，2–3 秒 −0.5，3–6 秒为 0。"
+            "单次序列，无固定重复频率；幅值按绝对值显示。",
+        ),
+        4: ("0.5", "0.5–5.0", "扫频：幅值 ±0.5，频率从 0.5 Hz 线性扫至 5.0 Hz，持续 6 秒。"),
+        5: ("0.5", "1.0", "正弦：幅值 ±0.5，频率 1.0 Hz。"),
+        6: ("0.5", "0", "阶跃：0–6 秒保持 +0.5，之后恢复为 0；无周期振荡。"),
+    }
+
     def __init__(self, parent=None, columns=1):
         super().__init__(parent)
         self._current_mode = 0
@@ -79,13 +93,13 @@ class ControlModeBox(QGroupBox):
             "  background-color: #edf5ff;"
             "  color: #1f5fbf;"
             "}"
-            "QGroupBox#ModeContainer QPushButton:pressed {"
-            "  background-color: #dfeeff;"
-            "}"
             "QGroupBox#ModeContainer QPushButton:checked {"
             "  background-color: #d6ebff;"
             "  color: #1c5fb3;"
             "  border: 1px solid #5a93e6;"
+            "}"
+            "QGroupBox#ModeContainer QPushButton:pressed {"
+            "  background-color: #a9c9e8;"
             "}"
             "QGroupBox#ModeContainer QPushButton:disabled {"
             "  background: #f0f0f0;"
@@ -115,6 +129,7 @@ class ControlModeBox(QGroupBox):
         layout.setAlignment(Qt.AlignTop)
 
         for mode, label in self._BUTTONS:
+            amplitude, frequency, description = self._MODE_DETAILS[mode]
             row = QWidget(self)
             row.setFixedHeight(36)
             row.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -126,6 +141,7 @@ class ControlModeBox(QGroupBox):
             btn.setCheckable(True)
             btn.setAutoExclusive(False)
             btn.setChecked(False)
+            btn.setToolTip(description)
             btn.setFixedWidth(100)
             btn.setFixedHeight(32)
             btn.setStyleSheet(
@@ -146,7 +162,7 @@ class ControlModeBox(QGroupBox):
 
             amp_label = QLabel("幅值")
             amp_label.setFixedWidth(42)
-            amp_edit = QLineEdit("0")
+            amp_edit = QLineEdit(amplitude)
             amp_edit.setFixedWidth(80)
             amp_edit.setAlignment(Qt.AlignRight)
             h.addWidget(amp_label)
@@ -154,7 +170,7 @@ class ControlModeBox(QGroupBox):
 
             freq_label = QLabel("频率")
             freq_label.setFixedWidth(42)
-            freq_edit = QLineEdit("0")
+            freq_edit = QLineEdit(frequency)
             freq_edit.setFixedWidth(80)
             freq_edit.setAlignment(Qt.AlignRight)
             h.addWidget(freq_label)

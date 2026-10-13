@@ -253,7 +253,7 @@ presets:
 | `preset_manager.py` | 启动首页；左 `QTreeWidget` 按 category 分组（State→User），右固定 260px 按钮列（新建/编辑/删除/下载）+ 实时状态面板（两通道 Angle/Force） |
 | `editor_page.py` | 两通道 `QTabWidget`（俯仰/滚转），每个 tab 内嵌 `ChannelPage`；切 tab 时刷新当前通道 |
 | `channel_page.py` | 左右分栏：左侧力感参数 4 个 lineedit（friction / breakout_force / negative_stop / positive_stop）+ 18 点 QLineEdit 网格（位置/力，正负半区各 9 行）；右侧 pyqtgraph 标定曲线 + 实时遥测轨迹 + 操作按钮（清轨迹/自适应/存图/标定曲线开关） |
-| `widgets/control_mode_box.py` | 底部灰框：6 个 checkable 按钮（抖杆/脉冲/倍脉冲/扫频/正弦/阶跃），同按钮再点 OFF，不同按钮直接切换 |
+| `widgets/control_mode_box.py` | 底部灰框：6 个 checkable 按钮（抖杆/脉冲/倍脉冲/扫频/正弦/阶跃），显示各模式幅值与非负频率，悬停按钮显示信号说明；同按钮再点 OFF，不同按钮直接切换 |
 | `style.qss` | 蓝条 `#2f5d8a`、返回按钮透明白字、蓝字脏标记 `QLineEdit[dirty="true"] { color: #1565d8; font-weight: bold; }`、QTabWidget 与灰框样式 |
 
 ---

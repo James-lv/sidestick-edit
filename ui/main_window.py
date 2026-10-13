@@ -116,7 +116,7 @@ class MainWindow(QMainWindow):
             "  border-bottom: 1px solid #cfe0ee;"
             "}"
             "QPushButton:pressed {"
-            "  background-color: #dfeefb;"
+            "  background-color: #bfdcf3;"
             "}"
         )
         layout = QHBoxLayout(container)
@@ -153,6 +153,9 @@ class MainWindow(QMainWindow):
         page.setStyleSheet(
             "QWidget#TestPage {"
             "  background-color: #f0f0f0;"
+            "}"
+            "QWidget#TestPage QPushButton:pressed {"
+            "  background-color: #a9c9e8;"
             "}"
         )
 

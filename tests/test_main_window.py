@@ -79,6 +79,23 @@ class TestMainWindow(unittest.TestCase):
         QApplication.instance().processEvents()
         self.assertTrue(self.win._mode_box.isEnabled())
 
+    def test_mode_buttons_show_absolute_amplitude_frequency_and_tooltips(self):
+        box = self.win._mode_box
+        expected = {
+            1: ("100.0", "10.0"),
+            2: ("0.5", "0.5"),
+            3: ("0.5", "0"),
+            4: ("0.5", "0.5–5.0"),
+            5: ("0.5", "1.0"),
+            6: ("0.5", "0"),
+        }
+        for mode, (amplitude, frequency) in expected.items():
+            self.assertEqual(box._amp_inputs[mode].text(), amplitude)
+            self.assertEqual(box._freq_inputs[mode].text(), frequency)
+            self.assertTrue(box._buttons[mode].toolTip())
+
+        self.assertIn("无固定重复频率", box._buttons[3].toolTip())
+
     def test_link_changed_updates_label_and_led(self):
         self.backend.link_state_changed.emit(True, "已连接")
         QApplication.instance().processEvents()
