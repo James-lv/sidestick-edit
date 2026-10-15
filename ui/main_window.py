@@ -27,8 +27,8 @@ from pathlib import Path
 
 from PyQt5.QtCore import Qt, pyqtSlot
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel,
-                             QMainWindow, QPushButton, QStackedWidget,
+from PyQt5.QtWidgets import (QAction, QButtonGroup, QFrame, QHBoxLayout,
+                             QLabel, QMainWindow, QPushButton, QStackedWidget,
                              QVBoxLayout, QWidget)
 
 from ui.channel_page import ChannelPage
@@ -37,6 +37,7 @@ from ui.preset_manager import PresetManagerPage
 from ui.widgets.control_mode_box import ControlModeBox
 
 _ASSETS = Path(__file__).resolve().parent.parent / "assets"
+_CHANNEL_AXES = ((1, "俯仰"), (2, "滚转"), (3, "偏航"))
 
 
 class MainWindow(QMainWindow):
@@ -46,6 +47,12 @@ class MainWindow(QMainWindow):
     def __init__(self, backend, parent=None):
         super().__init__(parent)
         self._backend = backend
+        self._channels_by_axis = {
+            channel["axis"]: channel for channel in backend.channels()
+        }
+        self._preset_channel_indexes = {
+            channel["index"] for channel in backend.data_channels()
+        }
 
         # 俯仰 = protocol.yaml channel_ids 中 axis==1 的那条
         self._pitch_index = next(
@@ -140,13 +147,38 @@ class MainWindow(QMainWindow):
         return container
 
     def _build_menu_bar(self):
-        """菜单栏：设置 → 网络绑定…（对齐原版 C++ 顶栏，决策 25）。"""
+        """菜单栏：设置网络，以及按页面/通道控制可见性。"""
         menubar = self.menuBar()
         menubar.setObjectName("MainMenuBar")
         m_settings = menubar.addMenu("设置(&S)")
         act_net = m_settings.addAction("网络绑定…")
         act_net.setStatusTip("修改本机/控制器 IP 与端口，立即生效并持久化")
         act_net.triggered.connect(self._open_network_dialog)
+
+        m_view = menubar.addMenu("查看(&V)")
+        self._channel_visibility_actions = {}
+        for section, title in (("preset", "预设"), ("test", "开环测试")):
+            submenu = m_view.addMenu(title)
+            for axis, name in _CHANNEL_AXES:
+                action = QAction(name, submenu)
+                action.setCheckable(True)
+                action.setChecked(True)
+                channel = self._channels_by_axis.get(axis)
+                available = channel is not None
+                if section == "preset":
+                    available = (
+                        available
+                        and channel["index"] in self._preset_channel_indexes
+                    )
+                action.setEnabled(available)
+                if not available:
+                    action.setToolTip("当前配置中没有可显示的%s通道页面。" % name)
+                action.toggled.connect(
+                    lambda visible, section=section, axis=axis:
+                    self._set_channel_visibility(section, axis, visible)
+                )
+                submenu.addAction(action)
+                self._channel_visibility_actions[(section, axis)] = action
 
     def _build_test_page(self, parent=None):
         page = QWidget(parent)
@@ -237,15 +269,18 @@ class MainWindow(QMainWindow):
 
         self._test_channel_group.buttonClicked[int].connect(
             self._on_test_channel_selected)
-        channel_button_row = QHBoxLayout()
+        self._test_channel_row = QWidget(mode_container)
+        channel_button_row = QHBoxLayout(self._test_channel_row)
         channel_button_row.setContentsMargins(8, 8, 8, 0)
         channel_button_row.setSpacing(6)
         for button in self._test_channel_buttons.values():
             channel_button_row.addWidget(button)
-        mode_layout.addLayout(channel_button_row)
+        mode_layout.addStretch(1)
+        mode_layout.addWidget(self._test_channel_row)
         self._test_channel_buttons["俯仰"].setChecked(True)
 
         plot_panel = QWidget(content)
+        self._test_plot_panel = plot_panel
         plot_panel.setObjectName("TestPlotPanel")
         plot_panel.setStyleSheet(
             "QWidget#TestPlotPanel {"
@@ -403,6 +438,9 @@ class MainWindow(QMainWindow):
             self._backend.set_control_mode(self._test_channel, mode)
 
     def _on_test_channel_selected(self, axis):
+        action = self._channel_visibility_actions.get(("test", axis))
+        if action is not None and not action.isChecked():
+            return
         channel = self._test_channel_by_axis[axis]
         available = channel["index"] in self._test_data_channel_indexes
         self._test_channel = channel["index"] if available else None
@@ -414,6 +452,49 @@ class MainWindow(QMainWindow):
             self._mode_box.set_mode(0)
         self._test_plot_pages.setCurrentIndex(
             self._test_plot_page_indexes[channel["index"]])
+
+    def _set_channel_visibility(self, section, axis, visible):
+        channel = self._channels_by_axis.get(axis)
+        if channel is None:
+            return
+
+        if section == "preset":
+            self._editor_page.set_channel_visible(channel["index"], visible)
+            return
+
+        button = self._test_channel_buttons.get(channel["name"])
+        if button is None:
+            return
+        button.setVisible(visible)
+
+        if not visible and self._test_channel == channel["index"]:
+            next_axis = next(
+                (
+                    candidate_axis
+                    for candidate_axis, _name in _CHANNEL_AXES
+                    if self._channel_visibility_actions[
+                        ("test", candidate_axis)
+                    ].isChecked()
+                    and candidate_axis in self._channels_by_axis
+                    and self._channels_by_axis[candidate_axis]["name"]
+                    in self._test_channel_buttons
+                ),
+                None,
+            )
+            if next_axis is None:
+                self._test_channel = None
+                self._mode_box.setEnabled(False)
+                self._test_channel_row.hide()
+                self._test_plot_panel.hide()
+            else:
+                self._test_channel_buttons[
+                    self._channels_by_axis[next_axis]["name"]
+                ].click()
+        elif visible:
+            self._test_channel_row.show()
+            self._test_plot_panel.show()
+            if self._test_channel is None:
+                button.click()
 
     @pyqtSlot(int, int, bool)
     def _on_control_mode_changed(self, ch, mode, dirty):

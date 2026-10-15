@@ -46,12 +46,38 @@ class EditorPage(QWidget):
             page.refresh()
 
     def refresh_current(self):
-        page = self._pages[self._tabs.currentIndex()]
-        page.refresh()
+        index = self._tabs.currentIndex()
+        if index >= 0 and self._tabs.tabBar().isTabVisible(index):
+            self._pages[index].refresh()
 
     def fit_current(self):
         """自适应当前可见 tab 的曲线（从预设管理页进入编辑页时调用）。"""
-        self._pages[self._tabs.currentIndex()].fit_curve()
+        index = self._tabs.currentIndex()
+        if index >= 0 and self._tabs.tabBar().isTabVisible(index):
+            self._pages[index].fit_curve()
+
+    def set_channel_visible(self, channel_index: int, visible: bool) -> bool:
+        """设置通道标签页可见性；无对应编辑页时返回 False。"""
+        tab_index = next(
+            (index for index, page in enumerate(self._pages)
+             if page._ch == channel_index),
+            None,
+        )
+        if tab_index is None:
+            return False
+
+        self._tabs.setTabVisible(tab_index, visible)
+        visible_indexes = [
+            index for index in range(len(self._pages))
+            if self._tabs.tabBar().isTabVisible(index)
+        ]
+        if not visible_indexes:
+            self._tabs.hide()
+        else:
+            self._tabs.show()
+            if self._tabs.currentIndex() not in visible_indexes:
+                self._tabs.setCurrentIndex(visible_indexes[0])
+        return True
 
     def _on_tab_changed(self, _index):
         self.refresh_current()

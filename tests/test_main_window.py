@@ -139,6 +139,66 @@ class TestMainWindow(unittest.TestCase):
 
         self.assertEqual(self.win._stack.currentIndex(), MainWindow.PAGE_TEST)
 
+    def test_view_menu_hides_and_restores_preset_channel_tabs(self):
+        tabs = self.win._editor_page._tabs
+        pitch = self._channel_index_for_axis(1)
+        roll = self._channel_index_for_axis(2)
+        yaw = self._channel_index_for_axis(3)
+        pitch_tab = next(
+            index for index, page in enumerate(self.win._editor_page._pages)
+            if page._ch == pitch
+        )
+        roll_tab = next(
+            index for index, page in enumerate(self.win._editor_page._pages)
+            if page._ch == roll
+        )
+        yaw_tab = next(
+            index for index, page in enumerate(self.win._editor_page._pages)
+            if page._ch == yaw
+        )
+        pitch_action = self.win._channel_visibility_actions[("preset", 1)]
+        roll_action = self.win._channel_visibility_actions[("preset", 2)]
+        yaw_action = self.win._channel_visibility_actions[("preset", 3)]
+
+        self.assertTrue(pitch_action.isChecked())
+        tabs.setCurrentIndex(pitch_tab)
+        pitch_action.setChecked(False)
+        self.assertFalse(tabs.tabBar().isTabVisible(pitch_tab))
+        self.assertEqual(tabs.currentIndex(), roll_tab)
+
+        roll_action.setChecked(False)
+        yaw_action.setChecked(False)
+        self.assertTrue(tabs.isHidden())
+        self.assertFalse(tabs.tabBar().isTabVisible(roll_tab))
+        self.assertFalse(tabs.tabBar().isTabVisible(yaw_tab))
+        pitch_action.setChecked(True)
+        self.assertFalse(tabs.isHidden())
+        self.assertTrue(tabs.tabBar().isTabVisible(pitch_tab))
+
+    def test_view_menu_hides_and_restores_test_channel_pages(self):
+        buttons = self.win._test_channel_buttons
+        pitch_action = self.win._channel_visibility_actions[("test", 1)]
+        roll_action = self.win._channel_visibility_actions[("test", 2)]
+        yaw_action = self.win._channel_visibility_actions[("test", 3)]
+
+        pitch_action.setChecked(False)
+        self.assertTrue(buttons["俯仰"].isHidden())
+        self.assertEqual(self.win._test_channel, self._channel_index_for_axis(2))
+
+        roll_action.setChecked(False)
+        self.assertEqual(self.win._test_channel, self._channel_index_for_axis(3))
+        yaw_action.setChecked(False)
+        self.assertIsNone(self.win._test_channel)
+        self.assertTrue(self.win._test_channel_row.isHidden())
+        self.assertTrue(self.win._test_plot_panel.isHidden())
+        self.assertFalse(self.win._mode_box.isEnabled())
+
+        yaw_action.setChecked(True)
+        self.assertFalse(buttons["偏航"].isHidden())
+        self.assertFalse(self.win._test_plot_panel.isHidden())
+        self.assertEqual(self.win._test_channel, self._channel_index_for_axis(3))
+        self.assertTrue(self.win._mode_box.isEnabled())
+
     def test_test_channel_buttons_switch_channel_and_show_yaw_curve(self):
         buttons = self.win._test_channel_buttons
         self.assertEqual(list(buttons), ["俯仰", "滚转", "偏航"])
@@ -201,6 +261,16 @@ class TestMainWindow(unittest.TestCase):
     def test_test_page_bottom_gray_margin_is_compact(self):
         self.assertEqual(self.win._test_page.layout().contentsMargins().bottom(), 10)
 
+    def test_test_channel_buttons_are_aligned_to_bottom_of_mode_panel(self):
+        self.win._stack.setCurrentIndex(MainWindow.PAGE_TEST)
+        QApplication.instance().processEvents()
+
+        panel = self.win._test_channel_row.parentWidget()
+        row_bottom = (
+            self.win._test_channel_row.y() + self.win._test_channel_row.height()
+        )
+        self.assertGreaterEqual(row_bottom, panel.height() - 16)
+
     # ------------------------------------------------------------------
     # 开环测试模式
     # ------------------------------------------------------------------
@@ -243,6 +313,12 @@ class TestMainWindow(unittest.TestCase):
     def _first_preset(self):
         presets = self.backend.get_presets()
         return presets[0] if presets else None
+
+    def _channel_index_for_axis(self, axis):
+        return next(
+            channel["index"] for channel in self.bundle.channels()
+            if channel["axis"] == axis
+        )
 
 
 if __name__ == "__main__":
