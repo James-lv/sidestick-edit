@@ -34,12 +34,13 @@ class TestLoadRealConfig(unittest.TestCase):
     def setUpClass(cls):
         cls.bundle = config_loader.load_all()
 
-    def test_two_channels_with_unique_axis(self):
+    def test_three_configured_channels_with_unique_axis(self):
         chans = self.bundle.channels()
-        self.assertEqual(len(chans), 2)
-        self.assertEqual([ch["axis"] for ch in chans], [1, 2])
+        self.assertEqual(len(chans), 3)
+        self.assertEqual([ch["axis"] for ch in chans], [1, 2, 3])
         self.assertEqual(self.bundle.channel_by_index(0)["name"], "俯仰")
         self.assertEqual(self.bundle.channel_by_index(1)["name"], "滚转")
+        self.assertEqual(self.bundle.channel_by_index(2)["name"], "偏航")
 
     def test_ports_coerced_to_int(self):
         net = self.bundle.protocol["network"]

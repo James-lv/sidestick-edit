@@ -43,15 +43,15 @@ class TestEditorPage(unittest.TestCase):
         shutil.rmtree(self.tmp, ignore_errors=True)
         QApplication.instance().processEvents()
 
-    def test_has_two_tabs(self):
-        self.assertEqual(self.editor._tabs.count(), 2)
-        names = [self.editor._tabs.tabText(i) for i in range(2)]
-        self.assertEqual(names, ["俯仰", "滚转"])
+    def test_tabs_match_channels_with_preset_data(self):
+        names = [self.editor._tabs.tabText(i)
+                 for i in range(self.editor._tabs.count())]
+        self.assertEqual(names, [ch["name"] for ch in self.backend.data_channels()])
 
     def test_channel_pages_match_channels(self):
         pages = self.editor.channel_pages()
-        self.assertEqual(len(pages), 2)
-        for page, ch_id in zip(pages, self.backend.channels()):
+        self.assertEqual(len(pages), len(self.backend.data_channels()))
+        for page, ch_id in zip(pages, self.backend.data_channels()):
             self.assertEqual(page._ch, ch_id["index"])
 
     def test_current_channel_returns_active_index(self):

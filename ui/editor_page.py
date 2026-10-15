@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""editor_page —— 通道编辑页（QTabWidget：俯仰 / 滚转）。
+"""editor_page —— 通道编辑页（QTabWidget：按配置显示通道）。
 
-两个 tab 由 protocol.yaml 的 channel_ids 驱动（顺序 = index 0/1），
+各 tab 由具有完整预设数据的通道驱动（顺序与 protocol.yaml 一致），
 每个 tab 内嵌 ChannelPage。切 tab 时重绘该通道（值 + 蓝字），
 保证「加载预设 / 下载后回到本页」看到的是最新编辑态。
 """
@@ -12,7 +12,7 @@ from ui.channel_page import ChannelPage
 
 
 class EditorPage(QWidget):
-    """双通道（俯仰/滚转）编辑容器。"""
+    """具有完整预设数据的通道编辑容器。"""
 
     def __init__(self, backend, parent=None, back_callback=None):
         super().__init__(parent)
@@ -23,8 +23,8 @@ class EditorPage(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
 
         self._tabs = QTabWidget(self)
-        self._pages = []                        # 与 channel_ids 顺序一致
-        for ch_id in backend.channels():
+        self._pages = []                        # 与可编辑通道顺序一致
+        for ch_id in backend.data_channels():
             page = ChannelPage(backend, ch_id["index"], ch_id["name"],
                               back_callback=self._back_callback)
             self._pages.append(page)
@@ -34,7 +34,7 @@ class EditorPage(QWidget):
 
     # ------------------------------------------------------------
     def current_channel(self) -> int:
-        """当前激活的通道 index（0/1）。"""
+        """当前激活的通道 index。"""
         idx = self._tabs.currentIndex()
         if 0 <= idx < len(self._pages):
             return self._pages[idx]._ch

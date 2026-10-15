@@ -14,11 +14,11 @@ network:
   local_ip:     "127.0.0.1"  # 本机绑定 IP（0.0.0.0 = 任一网卡）
   local_port:   9200  # 本机端口（收发共用）
 
-# 两通道标识常量（报文字段，随通道固定——选通道用，不是可调发送参数）
+# 通道标识常量（报文字段，随通道固定——选通道用，不是可调发送参数）
 channel_ids:
   - {index: 0, name: "俯仰", axis: 1}
   - {index: 1, name: "滚转", axis: 2}
-
+  - {index: 2, name: "偏航", axis: 3}
 # ⚠️ 原 send_defaults（scaling/tanhuang/zuni1/zuni2/showbili/rwa_nihe）已删除：
 #    所有 send 包字段值均由 preset_store 提供（presets.yaml 每通道 12 字段），
 #    只有点击 Download/发送才组包发出，协议层不再有默认值兜底（决策：填充好才发送）。
@@ -33,7 +33,7 @@ structs:
     # C++ 控制器侧需同步重排字段顺序，包大小仍 182B
     fields:
       - {name: "host_mode",       type: "bool",  unit: "-",   zh: "主机标志"}   # 作为主机开关（仅随包携带，不影响参数发送）
-      - {name: "axis",            type: "int8",  unit: "-",   zh: ""}           # 通道选择：1=俯仰 2=滚转
+      - {name: "axis",            type: "int8",  unit: "-",   zh: ""}           # 通道选择：1=俯仰 2=滚转 3=偏航
       - {name: "zero_calib",      type: "bool",  unit: "-",   zh: "校零"}       # 鼠标按下=1、抬起=0（脉冲）
       - {name: "control_mode",    type: "int8",  unit: "-",   zh: "控制模式"}   # 0=OFF 1=抖杆 2=脉冲 3=倍脉冲 4=扫频 5=正弦 6=阶跃
       - {name: "pos_pts",         type: "float", count: 18, unit: "deg", zh: "拟合位置"}  # 先发正方向9点，再发负方向9点，均为绝对值（下发给侧杆的力感点）
@@ -62,7 +62,7 @@ packets:
     layout:
       - UDP_UI_Send_To_Controller_Parameter
 
-  recv:                          # 控制器 → UI：16B 周期帧（每通道 8B × 2 通道）
+  recv:                          # 控制器 → UI：每通道 8B 周期帧
     repeat: all_channels         # 按通道数重复（固定 2 通道）
     layout:
       - FromController_Periodical_Channel

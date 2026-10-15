@@ -29,14 +29,14 @@ def _ch_data(**overrides):
     return data
 
 
-def _state_block(pid, builtin=True):
+def _state_block(pid, builtin=True, channels=(0, 1)):
     lines = ["  - id: %s" % pid,
              "    label: 状态",
              "    category: State"]
     if builtin:
         lines.append("    builtin: true")
     lines.append("    channels:")
-    for ch in (0, 1):
+    for ch in channels:
         lines.append("      %d:" % ch)
         lines.append("        scale_factor: 100")
         lines.append("        spring_force: 0")
@@ -72,8 +72,8 @@ class TestParseRealFile(unittest.TestCase):
         self.assertEqual(ids, ["state_%d" % i for i in range(1, 8)])
         self.assertTrue(all(preset_store.is_builtin(p) for p in self.presets))
 
-    def test_states_contain_pitch_and_roll_only(self):
-        """预设只含俯仰(0)+滚转(1)。"""
+    def test_states_contain_pitch_and_roll_until_yaw_data_is_added(self):
+        """现有预设含俯仰(0)+滚转(1)；偏航(2) 数据为可选。"""
         for p in self.presets:
             self.assertEqual(sorted(p["channels"]), [0, 1])
 
@@ -126,10 +126,18 @@ class TestParseErrors(unittest.TestCase):
         text = "presets:\n" + _state_block("s1") + _state_block("s1")
         self._assert_bad(text)
 
-    def test_preset_with_channel_2_forbidden(self):
-        """预设不能包含通道 2（脚蹬已删，只剩 0=俯仰 1=滚转）。"""
-        block = _state_block("a").replace("      1:", "      2:")
-        self._assert_bad("presets:\n" + block)
+    def test_optional_yaw_channel_is_accepted(self):
+        text = ("presets:\n"
+                + _state_block("a", channels=(0, 1, 2))
+                + _state_block("b", channels=(0, 1, 2)))
+        parsed = preset_store.parse_presets(text)
+        self.assertEqual(sorted(parsed[0]["channels"]), [0, 1, 2])
+
+    def test_partial_optional_yaw_configuration_is_rejected(self):
+        text = ("presets:\n"
+                + _state_block("a", channels=(0, 1, 2))
+                + _state_block("b", channels=(0, 1)))
+        self._assert_bad(text)
 
     def test_preset_missing_roll_channel(self):
         """预设必须同时含俯仰+滚转。"""

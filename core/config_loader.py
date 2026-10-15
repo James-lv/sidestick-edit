@@ -59,16 +59,20 @@ def _coerce_network(protocol: dict) -> None:
 
 def _validate_channel_ids(protocol: dict) -> None:
     ids = protocol.get("channel_ids")
-    if not isinstance(ids, list) or len(ids) != 2:
-        raise ConfigError("protocol.yaml 缺少 channel_ids 或不是 2 项")
+    if not isinstance(ids, list) or not 1 <= len(ids) <= 3:
+        raise ConfigError("protocol.yaml channel_ids 必须包含 1 到 3 项")
     axes = []
+    indexes = []
     for ch in ids:
         missing = [k for k in ("index", "name", "axis") if k not in ch]
         if missing:
             raise ConfigError("channel_ids %r 缺少键: %s" % (ch.get("index"), missing))
         axes.append(ch["axis"])
+        indexes.append(ch["index"])
     if len(set(axes)) != len(axes):
         raise ConfigError("channel_ids axis 值不唯一: %s" % axes)
+    if len(set(indexes)) != len(indexes):
+        raise ConfigError("channel_ids index 值不唯一: %s" % indexes)
 
 
 @dataclass
@@ -78,7 +82,7 @@ class ConfigBundle:
     config_dir: Path
 
     def channels(self) -> List[dict]:
-        """通道标识列表（固定 2 项：index/name/axis）。"""
+        """通道标识列表（每项含 index/name/axis）。"""
         return self.protocol["channel_ids"]
 
     def channel_by_index(self, index: int) -> dict:

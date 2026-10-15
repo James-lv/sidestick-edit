@@ -9,9 +9,9 @@
     ├────────────────────────────────────────────────────────────┤
     │ QStackedWidget                                             │
     │   页0 PresetManagerPage（预设列表：新建/编辑/删除/下载）       │
-    │   页1 EditorPage（俯仰/滚转 两 tab 编辑页）               │
+    │   页1 EditorPage（已配置数据通道的编辑页）                  │
     ├────────────────────────────────────────────────────────────┤
-    │ [灰框] 抖杆 脉冲 倍脉冲 扫频 正弦 阶跃（固定操作俯仰，轴1）      │
+    │ [开环测试] 模式控制 + 俯仰/滚转/偏航通道选择                   │
     └────────────────────────────────────────────────────────────┘
 
 交互要点：
@@ -20,14 +20,14 @@
     - 蓝条右侧：网络连接 = 指示灯 + 文字（非按钮，link_state_changed）；
       「作为主机」= 指示灯 + 可选中按钮（选中变蓝，旁边灯同步状态；
       host 模式只影响底部灰框控制模式使能，不影响参数发送，ARCHITECTURE §7.3）。
-    - 底部灰框固定只操作俯仰通道（axis=1，channel index 0）。
+    - 开环测试页的模式控制操作当前选中的通道；协议未定义的通道禁用。
 """
 
 from pathlib import Path
 
 from PyQt5.QtCore import Qt, pyqtSlot
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import (QFrame, QHBoxLayout, QLabel,
+from PyQt5.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel,
                              QMainWindow, QPushButton, QStackedWidget,
                              QVBoxLayout, QWidget)
 
@@ -50,6 +50,7 @@ class MainWindow(QMainWindow):
         # 俯仰 = protocol.yaml channel_ids 中 axis==1 的那条
         self._pitch_index = next(
             (ch["index"] for ch in backend.channels() if ch["axis"] == 1), 0)
+        self._test_channel = self._pitch_index
 
         self.setWindowTitle("BCLS 侧杆编辑界面")
         self.resize(1440, 800)
@@ -128,7 +129,7 @@ class MainWindow(QMainWindow):
         self._preset_tab_btn.setChecked(True)
         self._preset_tab_btn.clicked.connect(lambda: self._stack.setCurrentIndex(self.PAGE_PRESETS))
 
-        self._test_tab_btn = QPushButton("测试", container)
+        self._test_tab_btn = QPushButton("开环测试", container)
         self._test_tab_btn.setCheckable(True)
         self._test_tab_btn.clicked.connect(lambda: self._stack.setCurrentIndex(self.PAGE_TEST))
 
@@ -160,7 +161,7 @@ class MainWindow(QMainWindow):
         )
 
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(10, 8, 10, 30)
+        layout.setContentsMargins(10, 8, 10, 10)
         layout.setSpacing(12)
 
         content = QWidget(page)
@@ -195,6 +196,55 @@ class MainWindow(QMainWindow):
         self._mode_box.setEnabled(True)
         mode_layout.addWidget(self._mode_box)
 
+        self._test_channel_by_axis = {
+            channel["axis"]: channel for channel in self._backend.channels()
+        }
+        self._test_channel_group = QButtonGroup(mode_container)
+        self._test_channel_group.setExclusive(True)
+        self._test_channel_buttons = {}
+        data_channel_indexes = {
+            channel["index"] for channel in self._backend.data_channels()
+        }
+        self._test_data_channel_indexes = data_channel_indexes
+        for axis, name in ((1, "俯仰"), (2, "滚转"), (3, "偏航")):
+            button = QPushButton(name, mode_container)
+            button.setCheckable(True)
+            button.setMinimumHeight(32)
+            button.setStyleSheet(
+                "QPushButton {"
+                "  background-color: #f2f8ff;"
+                "  border: 1px solid #7aa9de;"
+                "  border-radius: 5px;"
+                "  padding: 4px 8px;"
+                "  font-size: 15px;"
+                "}"
+                "QPushButton:checked {"
+                "  background-color: #d6ebff;"
+                "  color: #1c5fb3;"
+                "  border: 1px solid #5a93e6;"
+                "}"
+            )
+            channel = self._test_channel_by_axis.get(axis)
+            if channel is None:
+                button.setEnabled(False)
+                button.setToolTip("当前协议配置未定义%s通道，暂不可用。" % name)
+            else:
+                self._test_channel_group.addButton(button, axis)
+                if channel["index"] not in data_channel_indexes:
+                    button.setToolTip(
+                        "%s预设数据尚未配置，暂不能下发测试模式。" % name)
+            self._test_channel_buttons[name] = button
+
+        self._test_channel_group.buttonClicked[int].connect(
+            self._on_test_channel_selected)
+        channel_button_row = QHBoxLayout()
+        channel_button_row.setContentsMargins(8, 8, 8, 0)
+        channel_button_row.setSpacing(6)
+        for button in self._test_channel_buttons.values():
+            channel_button_row.addWidget(button)
+        mode_layout.addLayout(channel_button_row)
+        self._test_channel_buttons["俯仰"].setChecked(True)
+
         plot_panel = QWidget(content)
         plot_panel.setObjectName("TestPlotPanel")
         plot_panel.setStyleSheet(
@@ -207,15 +257,35 @@ class MainWindow(QMainWindow):
         plot_layout.setContentsMargins(0, 0, 0, 0)
         plot_layout.setSpacing(0)
 
-        channel_page = ChannelPage(
-            self._backend,
-            self._pitch_index,
-            "测试通道",
-            parent=plot_panel,
-            back_callback=lambda: self._stack.setCurrentIndex(self.PAGE_PRESETS),
-        )
-        channel_page._left_widget.hide()
-        plot_layout.addWidget(channel_page, 1)
+        self._test_plot_pages = QStackedWidget(plot_panel)
+        self._test_plot_page_indexes = {}
+        for channel in self._backend.channels():
+            if channel["index"] in data_channel_indexes:
+                channel_page = ChannelPage(
+                    self._backend,
+                    channel["index"],
+                    channel["name"],
+                    parent=self._test_plot_pages,
+                    back_callback=lambda: self._stack.setCurrentIndex(self.PAGE_PRESETS),
+                    show_calibration=True,
+                )
+                channel_page._left_widget.hide()
+            else:
+                channel_page = QWidget(self._test_plot_pages)
+                placeholder_layout = QVBoxLayout(channel_page)
+                placeholder_layout.addStretch(1)
+                message = QLabel(
+                    "%s预设数据尚未配置，暂不能下发测试模式。" % channel["name"],
+                    channel_page,
+                )
+                message.setAlignment(Qt.AlignCenter)
+                placeholder_layout.addWidget(message)
+                placeholder_layout.addStretch(1)
+            self._test_plot_page_indexes[channel["index"]] = (
+                self._test_plot_pages.addWidget(channel_page))
+        self._test_plot_pages.setCurrentIndex(
+            self._test_plot_page_indexes[self._pitch_index])
+        plot_layout.addWidget(self._test_plot_pages, 1)
 
         content_layout.addWidget(mode_container, 0)
         content_layout.addWidget(plot_panel, 1)
@@ -268,7 +338,7 @@ class MainWindow(QMainWindow):
         # 蓝条：连接状态
         be.link_state_changed.connect(self._on_link_changed)
 
-        # 测试页内的功能按钮 → 后端：固定俯仰（axis=1）
+        # 测试页内的功能按钮 → 后端：当前选中的测试通道
         self._mode_box.mode_selected.connect(self._on_mode_selected)
         be.control_mode_changed.connect(self._on_control_mode_changed)
 
@@ -328,12 +398,26 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot(int)
     def _on_mode_selected(self, mode):
-        """灰框点击：固定下发俯仰通道（只有俯仰有抖杆/模式）。"""
-        self._backend.set_control_mode(self._pitch_index, mode)
+        """灰框点击：下发到当前选中的测试通道。"""
+        if self._test_channel is not None:
+            self._backend.set_control_mode(self._test_channel, mode)
+
+    def _on_test_channel_selected(self, axis):
+        channel = self._test_channel_by_axis[axis]
+        available = channel["index"] in self._test_data_channel_indexes
+        self._test_channel = channel["index"] if available else None
+        self._mode_box.setEnabled(available)
+        if available:
+            self._mode_box.set_mode(
+                self._backend.get_control_mode(channel["index"]))
+        else:
+            self._mode_box.set_mode(0)
+        self._test_plot_pages.setCurrentIndex(
+            self._test_plot_page_indexes[channel["index"]])
 
     @pyqtSlot(int, int, bool)
     def _on_control_mode_changed(self, ch, mode, dirty):
-        if ch == self._pitch_index:
+        if ch == self._test_channel:
             self._mode_box.set_mode(mode)
 
 

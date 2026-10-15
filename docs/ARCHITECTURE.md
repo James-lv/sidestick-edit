@@ -122,7 +122,7 @@ pyqt_refactor/
 | `send_parameters` | `(channel: int)` | **内层「下载」按钮**：编辑态提交为已下发态 → 直接发 182B（无条件，无差异也发）。若当前编辑的是**用户新建预设** → 同时把该通道完整数据（18 点+参数）回写 presets.yaml（出厂预设不回写，决策 17） |
 | `set_packet_field` | `(channel: int, field: str, value)` | 编辑态提交（lineedit 输入完成 / 表格单元格改动 / 快捷按钮），**不下发**；回灌 `state_changed(dirty=…)` |
 | `zero` | `(channel: int)` | 置校零脉冲：置位→发→清两帧（防控制器 latch）；点击即发 |
-| `set_control_mode` | `(channel: int, mode: int)` | **控制模式**：0=OFF 1=抖杆 2=脉冲 3=倍脉冲 4=扫频 5=正弦 6=阶跃，点击即发，回灌 `control_mode_changed(ch, mode, dirty)`；非主机禁用。`channel` 参数保留以兼容未来扩展，**UI 固定传俯仰通道**（axis=1） |
+| `set_control_mode` | `(channel: int, mode: int)` | **控制模式**：0=OFF 1=抖杆 2=脉冲 3=倍脉冲 4=扫频 5=正弦 6=阶跃，点击即发，回灌 `control_mode_changed(ch, mode, dirty)`；开环测试页将当前有完整预设数据的通道传入 |
 | `load_preset` | `(channel: int, preset_id: str)` | 加载预设到**编辑态**（不发，标蓝），并记住当前编辑的预设 id（供内层「下载」判断是否回写）；内层「标准919数据·设置」按钮即此动作（`preset="state_1"`，状态1） |
 | `download_preset` | `(preset_id: str)` | **外层「下载」按钮**：加载预设的俯仰+滚转数据 → 提交 + 两通道下发 + 回灌（黑色）；**不写预设文件**（决策 17） |
 | `create_preset` | `()` | **新建**：免弹窗复制 模式6 综合力感 数据生成用户新预设（id 自动 `user_+时间戳`，决策 17/22）→ 原子重写 presets.yaml → 广播 `preset_list_changed` |
@@ -251,7 +251,7 @@ presets:
 |---|---|
 | `main_window.py` | 窗口 1440×860；标题「BCLS 操纵上位机」；自上而下：**顶部蓝条**（返回预设 / 标题 / 连接灯 / 作为主机）+ **QStackedWidget 双层页面**（预设管理页↔编辑页）+ **底部灰框控制模式按钮组**；灰框只服务俯仰（axis=1） |
 | `preset_manager.py` | 启动首页；左 `QTreeWidget` 按 category 分组（State→User），右固定 260px 按钮列（新建/编辑/删除/下载）+ 实时状态面板（两通道 Angle/Force） |
-| `editor_page.py` | 两通道 `QTabWidget`（俯仰/滚转），每个 tab 内嵌 `ChannelPage`；切 tab 时刷新当前通道 |
+| `editor_page.py` | `QTabWidget` 按已配置预设数据生成通道页；切 tab 时刷新当前通道 |
 | `channel_page.py` | 左右分栏：左侧力感参数 4 个 lineedit（friction / breakout_force / negative_stop / positive_stop）+ 18 点 QLineEdit 网格（位置/力，正负半区各 9 行）；右侧 pyqtgraph 标定曲线 + 实时遥测轨迹 + 操作按钮（清轨迹/自适应/存图/标定曲线开关） |
 | `widgets/control_mode_box.py` | 底部灰框：6 个 checkable 按钮（抖杆/脉冲/倍脉冲/扫频/正弦/阶跃），显示各模式幅值与非负频率，悬停按钮显示信号说明；同按钮再点 OFF，不同按钮直接切换 |
 | `style.qss` | 蓝条 `#2f5d8a`、返回按钮透明白字、蓝字脏标记 `QLineEdit[dirty="true"] { color: #1565d8; font-weight: bold; }`、QTabWidget 与灰框样式 |
@@ -278,8 +278,8 @@ presets:
 - 左：连接指示灯（`link_state_changed` 驱动，绿"已连接" / 红"未连接"）；右：「作为主机」开关（默认开，后端 `_host` 默认 True）。
 - **主机模式只影响「控制模式」按钮组的使能，不影响 UDP 参数包的正常发送**。关闭主机模式时，`set_control_mode` 直接返回（不发、不改状态）；其余参数编辑、内层/外层 Download、预设 CRUD、校零均不受影响。
 - **主机标志位随 182B 参数包下发**：`protocol.yaml` 的 send 结构体 `host_mode(bool)` 字段，`build_send_values` 读取后端 `_host` 写入。C++ 控制器侧需同步字段顺序/大小。
-- **控制模式字段**：原独立的 shaker/backdrive bool 已合并为单字节 `control_mode(int8)`，取值 0=OFF..6=阶跃。**控制模式按钮组（灰框）固定在主窗口最底部，且只服务俯仰通道**（axis=1，channel index 0）：点击任意模式按钮 → `backend.set_control_mode(pitch_index, mode)`，不随当前通道切换而改变。行为：同按钮再次点击 → OFF；不同按钮直接切换，不发 OFF。
-- 后端仍保留 per-channel `set_control_mode(ch, mode)` API（`ch` 参数保留），以防后续甲方要求滚转也启用模式；UI 侧目前固定传俯仰。
+- **控制模式字段**：原独立的 shaker/backdrive bool 已合并为单字节 `control_mode(int8)`，取值 0=OFF..6=阶跃。开环测试页的通道按钮选择当前测试通道，模式按钮组及对应预设标准曲线随之切换。行为：同模式按钮再次点击 → OFF；不同模式直接切换，不发 OFF。
+- 后端 `set_control_mode(ch, mode)` 对有完整预设数据的通道分别保存和下发模式。
 
 | 模式 | 控制模式按钮组 | 参数编辑 | 内层/外层 Download | 预设新建/编辑/删除 |
 |---|---|---|---|---|
@@ -357,7 +357,7 @@ friction(float) + breakout_force(int32) + spring_force(int32)
 | **配置恢复仅打包层（`_MEIPASS` datas）** | **修订（2026-09-08，决策 16）** | 代码层无自动恢复，配置缺失/损坏明确报错；打包后启动逐文件从 exe 内置模板补齐 |
 | Breakout / forceoffset 按字段名取值 | 本次决策（2026-09） | 原版 C++ p7/p8 显示与发送字段错位视为笔误，不照抄；forceoffset 为通道常量（protocol.yaml channel_ids） |
 | 样式进 `style.qss` | CZ | Python 只设 objectName / 动态属性（含蓝字脏标记） |
-| 不配置通道数 / 通道类型 | 本次决策 | 固定 2 通道（俯仰/滚转）由 channel_ids 推导（决策 20 删脚蹬） |
+| 不配置通道数 / 通道类型 | 本次决策 | 由 channel_ids 推导通道（俯仰/滚转；偏航数据可后续补入） |
 | 权限门控 / i18n | **不采纳** | Joystick 无中英切换概念（主机模式开关保留，见 §7.3） |
 
 > 已废弃：决策 1（正负方向顺序约定）、决策 3（空行程快捷按钮）、决策 5（18 点表只读自动计算）、"预设在基准上叠加（scale/override）"——均被决策 18 取代（详见 PROCESS.md）。

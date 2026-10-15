@@ -58,7 +58,7 @@ def main() -> int:
     # ---------- 1. 配置加载 ----------
     print("\n[1] 配置加载")
     bundle = config_loader.load_all()
-    check("通道标识 = 2", len(bundle.channels()) == 2,
+    check("通道标识为 1..3 项", 1 <= len(bundle.channels()) <= 3,
           "实际 %d" % len(bundle.channels()))
     check("network 端口", bundle.protocol["network"]["local_port"] == 9200
           and bundle.protocol["network"]["target_port"] == 9300)
@@ -69,15 +69,17 @@ def main() -> int:
     print_offset_table(spec2)
     check("send = 182 B", spec2.size == 182, "实际 %d" % spec2.size)
 
-    print("\n[3] recv 周期帧（期望单通道 8B × 2 = 16B）")
+    n_channels = len(bundle.channels())
+    print("\n[3] recv 周期帧（单通道 8B × %d）" % n_channels)
     spec1 = packets.build_packet_spec(bundle.protocol, "recv")
     print("  单通道块 = %d B, 字段: %s"
           % (spec1.size, ", ".join(f.name for f in spec1.fields)))
     check("recv 单通道块 = 8 B", spec1.size == 8, "实际 %d" % spec1.size)
     sample_frame = b"".join([packets.pack_packet(spec1, {"Position": 1.5, "LoadCellForce": -2.25})
-                             for _ in range(2)])
-    check("周期帧 = 16 B", len(sample_frame) == 16, "实际 %d" % len(sample_frame))
-    frames = packets.parse_recv_frame(spec1, sample_frame, 2)
+                             for _ in range(n_channels)])
+    check("周期帧长度正确", len(sample_frame) == spec1.size * n_channels,
+          "实际 %d" % len(sample_frame))
+    frames = packets.parse_recv_frame(spec1, sample_frame, n_channels)
     check("周期帧解析", all(f["Position"] == 1.5 and f["LoadCellForce"] == -2.25
                             for f in frames))
 

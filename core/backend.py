@@ -4,7 +4,7 @@
 状态模型（决策 10/17/18）：
     每通道两份数据：editing_data（界面显示）/ sent_data（已下发，组包只从它取数）。
     dirty = 两者不等 → 回灌 state_changed / points_changed 驱动 UI 蓝字。
-    启动基线 = 模式1 通道数据（俯仰/滚转两通道），全黑。
+    启动基线 = 模式1 中当前已配置的通道数据，全黑。
 
 交互规则：
     - 内层「下载」send_parameters(ch)：提交 + 直接发 182B（无条件，无差异也发）；
@@ -73,15 +73,24 @@ class BackendService(QObject):
         self._bundle = bundle
         self._presets_path = Path(presets_path)
         self._presets = preset_store.load_presets(self._presets_path)
-        self._channel_indexes = [ch["index"] for ch in self.channels()]
 
         self._send_spec = packets.build_packet_spec(bundle.protocol, "send")
         self._recv_spec = packets.build_packet_spec(bundle.protocol, "recv")
 
-        # 双状态（决策 10/18）：启动基线 = 模式1 通道数据（俯仰/滚转），全黑
+        # 预设数据可按通道逐步补齐；仅启用所有预设中均已配置的数据通道。
         baseline = self._find_preset(STARTUP_PRESET_ID)
         if baseline is None:
             raise RuntimeError("presets.yaml 缺少启动基线预设: %s" % STARTUP_PRESET_ID)
+        configured_indexes = {ch["index"] for ch in self.channels()}
+        preset_indexes = set(baseline["channels"])
+        unknown_indexes = preset_indexes - configured_indexes
+        if unknown_indexes:
+            raise RuntimeError(
+                "启动预设包含 protocol.yaml 未定义的通道: %s"
+                % sorted(unknown_indexes))
+        common_preset_indexes = set.intersection(
+            *(set(preset["channels"]) for preset in self._presets))
+        self._channel_indexes = sorted(configured_indexes & common_preset_indexes)
         self._editing = {}
         self._sent = {}
         for ch in self._channel_indexes:
@@ -107,6 +116,10 @@ class BackendService(QObject):
             self._udp.socket_error.connect(lambda msg: self._error("UDP", msg))
         self._log("后端就绪：%d 条预设（启动基线 %s）"
                   % (len(self._presets), STARTUP_PRESET_ID))
+        missing_indexes = sorted(configured_indexes - set(self._channel_indexes))
+        if missing_indexes:
+            self._log("未启用通道 %s：预设尚未提供该通道的完整数据"
+                      % missing_indexes)
 
     # ------------------------------------------------------------
     # 生命周期 / 只读访问（UI 启动渲染用）
@@ -189,8 +202,12 @@ class BackendService(QObject):
         return self._presets
 
     def channels(self):
-        """通道标识列表（俯仰/滚转，含 axis）。"""
+        """协议中配置的通道标识列表（含 axis）。"""
         return self._bundle.channels()
+
+    def data_channels(self):
+        """具有完整预设数据、可编辑和下发的通道。"""
+        return [ch for ch in self.channels() if ch["index"] in self._channel_indexes]
 
     def send_fields(self):
         """send 结构体字段元数据列表（name/type/count/unit/zh），UI 渲染标签/单位用。
@@ -349,6 +366,9 @@ class BackendService(QObject):
 
         该功能已从主机切换按钮中移出，测试页直接可用；mode 会随参数包立即下发，并触发 control_mode_changed。
         """
+        if ch not in self._flags:
+            self._error("set_control_mode", "通道 %r 尚无完整预设数据，不能下发测试模式" % ch)
+            return
         if not 0 <= mode <= 6:
             self._error("set_control_mode", "模式值非法: %d（应为 0..6）" % mode)
             return

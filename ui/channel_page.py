@@ -59,7 +59,8 @@ _PARAM_TOOLTIPS = {
 class ChannelPage(QWidget):
     """单个通道的编辑页。"""
 
-    def __init__(self, backend, ch, name, parent=None, back_callback=None):
+    def __init__(self, backend, ch, name, parent=None, back_callback=None,
+                 show_calibration=True):
         super().__init__(parent)
         self._backend = backend
         self._ch = ch
@@ -71,6 +72,10 @@ class ChannelPage(QWidget):
         self._param_types = {f: meta[f].get("type", "float") for f in PARAM_FIELDS}
 
         self._build_ui(meta)
+        if not show_calibration:
+            self._show_calib.hide()
+            if hasattr(self, "_calib"):
+                self._calib.setVisible(False)
         self._wire()
         self.refresh()
 

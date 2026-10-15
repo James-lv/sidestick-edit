@@ -16,8 +16,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt5.QtWidgets import QApplication  # noqa: E402
 
-from core import config_loader  # noqa: E402
+from core import config_loader, packets  # noqa: E402
 from core.backend import BackendService  # noqa: E402
+from core.curve import signed_curve  # noqa: E402
 from ui.main_window import MainWindow  # noqa: E402
 
 # QApplication 由 tests/__init__.py 统一创建
@@ -138,10 +139,72 @@ class TestMainWindow(unittest.TestCase):
 
         self.assertEqual(self.win._stack.currentIndex(), MainWindow.PAGE_TEST)
 
+    def test_test_channel_buttons_switch_channel_and_show_yaw_curve(self):
+        buttons = self.win._test_channel_buttons
+        self.assertEqual(list(buttons), ["俯仰", "滚转", "偏航"])
+        self.assertTrue(buttons["俯仰"].isChecked())
+        self.assertTrue(buttons["偏航"].isEnabled())
+
+        roll = next(ch["index"] for ch in self.bundle.channels()
+                    if ch["axis"] == 2)
+        buttons["滚转"].click()
+        QApplication.instance().processEvents()
+        self.assertEqual(self.win._test_channel, roll)
+        self.assertTrue(buttons["滚转"].isChecked())
+        self.assertEqual(
+            self.win._test_plot_pages.currentIndex(),
+            self.win._test_plot_page_indexes[roll],
+        )
+        self.assertEqual(self.win._mode_box.get_mode(),
+                         self.backend.get_control_mode(roll))
+
+        self.win._mode_box._buttons[2].click()
+        QApplication.instance().processEvents()
+        self.assertEqual(self.backend.get_control_mode(roll), 2)
+        self.assertEqual(self.backend.get_control_mode(self.win._pitch_index), 0)
+
+        buttons["偏航"].click()
+        QApplication.instance().processEvents()
+        yaw = next(ch["index"] for ch in self.bundle.channels()
+                   if ch["axis"] == 3)
+        self.assertTrue(buttons["偏航"].isChecked())
+        self.assertEqual(self.win._test_channel, yaw)
+        self.assertTrue(self.win._mode_box.isEnabled())
+        self.assertEqual(
+            self.win._test_plot_pages.currentIndex(),
+            self.win._test_plot_page_indexes[yaw],
+        )
+        yaw_page = self.win._test_plot_pages.widget(
+            self.win._test_plot_page_indexes[yaw])
+        self.assertFalse(yaw_page._show_calib.isHidden())
+        expected_curve = signed_curve(
+            self.backend.get_editing(yaw)["pos_pts"],
+            self.backend.get_editing(yaw)["force_pts"],
+        )
+        actual_curve = yaw_page._calib.getData()
+        self.assertEqual(list(actual_curve[0]), expected_curve[0])
+        self.assertEqual(list(actual_curve[1]), expected_curve[1])
+
+        self.win._mode_box._buttons[2].click()
+        self.assertEqual(self.backend.get_control_mode(yaw), 2)
+        values = packets.unpack_packet(
+            packets.build_packet_spec(self.bundle.protocol, "send"),
+            self.backend._tx_log[-1])
+        self.assertEqual(values["axis"], 3)
+
+        buttons["俯仰"].click()
+        self.assertTrue(self.win._mode_box.isEnabled())
+        self.assertEqual(self.win._mode_box.get_mode(), 0)
+        buttons["滚转"].click()
+        self.assertEqual(self.win._mode_box.get_mode(), 2)
+
+    def test_test_page_bottom_gray_margin_is_compact(self):
+        self.assertEqual(self.win._test_page.layout().contentsMargins().bottom(), 10)
+
     # ------------------------------------------------------------------
-    # 底部灰框（俯仰专用）
+    # 开环测试模式
     # ------------------------------------------------------------------
-    def test_mode_box_fixed_to_pitch(self):
+    def test_mode_box_targets_selected_channel(self):
         box = self.win._mode_box
         self.assertEqual(box.get_mode(), 0)
         self.assertTrue(box.isEnabled())
