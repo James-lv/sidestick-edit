@@ -12,7 +12,7 @@ from core import selfcheck
 
 class TestSelfcheckIntegration(unittest.TestCase):
     def test_selfcheck_exits_zero(self):
-        # 覆盖：配置加载 / 182B+16B 断言 / 组解包往返 / 换算抽检 /
+        # 覆盖：配置加载 / 182B+24B 断言 / 组解包往返 / 换算抽检 /
         # 预设往返 / 出厂自恢复（临时目录，不碰真实 config）
         self.assertEqual(selfcheck.main(), 0)
 

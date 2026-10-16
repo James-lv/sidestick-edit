@@ -50,9 +50,25 @@ class TestEditorPage(unittest.TestCase):
 
     def test_channel_pages_match_channels(self):
         pages = self.editor.channel_pages()
+        self.assertEqual(len(pages), 3)
         self.assertEqual(len(pages), len(self.backend.data_channels()))
         for page, ch_id in zip(pages, self.backend.data_channels()):
             self.assertEqual(page._ch, ch_id["index"])
+
+    def test_yaw_page_shows_calibration_and_live_telemetry(self):
+        page = self.editor.channel_pages()[2]
+        x, y = page._calib.getData()
+        self.assertEqual(len(x), 18)
+        self.assertEqual(len(y), 18)
+
+        self.backend.telemetry_received.emit({
+            2: {"Position": 12.5, "LoadCellForce": -3.25},
+        })
+        QApplication.instance().processEvents()
+        self.assertEqual(page._live_pos_label.text(), "位置: 12.50")
+        self.assertEqual(page._live_force_label.text(), "力: -3.25")
+        self.assertEqual(page._lx[-1], 12.5)
+        self.assertEqual(page._ly[-1], -3.25)
 
     def test_current_channel_returns_active_index(self):
         self.assertEqual(self.editor.current_channel(), 0)

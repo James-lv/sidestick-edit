@@ -12,7 +12,7 @@
    - 右侧固定 260px 操作面板：新建/编辑/删除/下载按钮 + 实时状态面板。
 
 3. **通道编辑容器** (`ui/editor_page.py`)
-   - `QTabWidget` 两 tab：俯仰 / 滚转。
+   - `QTabWidget` 三 tab：俯仰 / 滚转 / 偏航。
    - 切 tab 时自动刷新当前通道显示。
 
 4. **单通道编辑页** (`ui/channel_page.py`)
@@ -58,8 +58,8 @@ python -m unittest discover -s tests -t .
 
 ## 验证结果
 
-- `python -m unittest discover -s tests -t .`：**104 用例全绿**（2026-09-09 删脚蹬 + 18 点绝对值语义 + 菜单栏网络设置后回归）。
-- `python -m core.selfcheck`：send=182B / recv=16B / 往返一致 / 预设解析全通过。
+- `python -m unittest discover -s tests -t .`：**104 用例全绿**（2026-09-09 历史验证结果）。
+- `python -m core.selfcheck`：三通道 recv=24B 已验证；当前自检仍因 send 布局实际为 184B、旧断言期望 182B 而返回失败。
 - offscreen 冒烟截图：`docs/screenshots/page0_presets.png`、`docs/screenshots/page1_editor.png`。
 - 顶部菜单栏「设置→网络绑定…」：运行中改本机/控制器 IP 与端口，立即生效并写回 protocol.yaml（决策 25）。
 

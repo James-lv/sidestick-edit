@@ -1,7 +1,7 @@
 # ============================================================
 # BCLS Joystick 预设库
 #
-#   presets：每条状态含俯仰 0 + 滚转 1，偏航 2 可选；数据为报文原值。
+#   presets：每条状态含俯仰 0 + 滚转 1 + 偏航 2；数据为报文原值。
 #     每通道 11 字段（7 个力曲线/限位 + 4 个固定：scale_factor/spring_force/
 #     damping_num/damping_den/force_offset，全部随预设下发，不再有协议层兜底）。
 #     18 点表 pos_pts/force_pts 渲染为 flow 并按「正半 9 + 负半 9」折成两行，

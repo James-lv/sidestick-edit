@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """preset_store —— config/presets.yaml 的加载、原子写与数据校验（决策 18）。
 
-每条预设（状态）必须包含俯仰(0) + 滚转(1)，偏航(2) 可选，数据为报文原值（无换算）。
+每条预设（状态）必须包含俯仰(0) + 滚转(1) + 偏航(2)，数据为报文原值（无换算）。
 每通道 11 字段（7 个力曲线/限位字段 + 4 个固定字段，全部随预设下发）：
     channels:
       0:
@@ -53,10 +53,8 @@ CHANNEL_DATA_KEYS = ("friction", "breakout_force", "negative_stop", "positive_st
                      "scale_factor", "spring_force", "damping_num", "damping_den")
 #: 拟合点数（协议固定 18）
 POINT_COUNT = 18
-#: 每条预设必须包含的基础通道（俯仰 0 + 滚转 1）
-PRESET_CHANNEL_KEYS = (0, 1)
-#: 可选的附加测试通道（偏航 2）；有此数据时即可启用完整测试。
-OPTIONAL_PRESET_CHANNEL_KEYS = (2,)
+#: 每条预设必须包含的通道（俯仰 0 + 滚转 1 + 偏航 2）
+PRESET_CHANNEL_KEYS = (0, 1, 2)
 
 _TEXT_KEYS = ("label", "category", "description")
 
@@ -64,7 +62,7 @@ _HEADER = """\
 # ============================================================
 # BCLS Joystick 预设库
 #
-#   presets：每条状态含俯仰 0 + 滚转 1，偏航 2 可选；数据为报文原值。
+#   presets：每条状态含俯仰 0 + 滚转 1 + 偏航 2；数据为报文原值。
 #     每通道 11 字段（7 个力曲线/限位 + 4 个固定：scale_factor/spring_force/
 #     damping_num/damping_den/force_offset，全部随预设下发，不再有协议层兜底）。
 #     18 点表 pos_pts/force_pts 渲染为 flow 并按「正半 9 + 负半 9」折成两行，
@@ -151,7 +149,7 @@ def _parse_channels(raw: Any, pid: str) -> Dict[int, Dict[str, Any]]:
             ch = int(ck)
         except (TypeError, ValueError):
             raise PresetFormatError("预设 %r 的通道号非法: %r" % (pid, ck))
-        allowed_channels = PRESET_CHANNEL_KEYS + OPTIONAL_PRESET_CHANNEL_KEYS
+        allowed_channels = PRESET_CHANNEL_KEYS
         if ch not in allowed_channels:
             raise PresetFormatError(
                 "预设 %r 只能包含通道 %s（0=俯仰 1=滚转 2=偏航）"
@@ -203,13 +201,6 @@ def parse_presets(text: str) -> List[Dict[str, Any]]:
             raise PresetFormatError("预设 id 重复: %s" % preset["id"])
         seen.add(preset["id"])
         presets.append(preset)
-    optional_channel_sets = {
-        tuple(sorted(set(preset["channels"]) - set(PRESET_CHANNEL_KEYS)))
-        for preset in presets
-    }
-    if len(optional_channel_sets) > 1:
-        raise PresetFormatError(
-            "所有预设必须一致地包含可选通道（偏航 2），不能只配置部分预设")
     return presets
 
 

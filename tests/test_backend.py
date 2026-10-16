@@ -74,7 +74,7 @@ class TestStartupBaseline(BackendTestBase):
         self.assertEqual(be.get_editing(1), state1["channels"][1])
         self.assertFalse(be._is_dirty(0))
         self.assertFalse(be._is_dirty(1))
-        self.assertEqual(sorted(be._editing), [0, 1])   # 只剩俯仰/滚转两通道
+        self.assertEqual(sorted(be._editing), [0, 1, 2])
         self.assertEqual(len(be.get_presets()), 7)
 
 
@@ -153,24 +153,24 @@ class TestPresets(BackendTestBase):
         self.assertEqual(be._editing_preset_id, "state_2")
         self.assertAlmostEqual(be.get_editing(0)["friction"], 1.234, places=6)
         self.assertTrue(pts.records[-1][3])             # 与已下发态有差异 → 脏
-        # 通道 2 已删除 → 报错，不崩溃
-        be.load_preset(2, "state_2")
+        # 配置外通道 → 报错，不崩溃
+        be.load_preset(3, "state_2")
         self.assertTrue(any("不含通道" in m for _, m in self.err.records))
 
-    def test_download_preset_sends_two_channels(self):
+    def test_download_preset_sends_three_channels(self):
         be = self._make_backend()
-        # 整体下载 state_2：俯仰+滚转都下发 → 2 条
+        # 整体下载 state_2：俯仰、滚转、偏航都下发 → 3 条
         n = len(be._tx_log)
         be.download_preset("state_2")
-        self.assertEqual(len(be._tx_log) - n, 2)
-        self.assertFalse(be._is_dirty(0))
-        self.assertFalse(be._is_dirty(1))
-        # 再次下载同一预设：无变化检测，两通道全部重新下发 → 仍为 2 条
+        self.assertEqual(len(be._tx_log) - n, 3)
+        for ch in (0, 1, 2):
+            self.assertFalse(be._is_dirty(ch))
+        # 再次下载同一预设：无变化检测，三通道全部重新下发 → 仍为 3 条
         n = len(be._tx_log)
         be.download_preset("state_2")
-        self.assertEqual(len(be._tx_log) - n, 2)
-        self.assertFalse(be._is_dirty(0))
-        self.assertFalse(be._is_dirty(1))
+        self.assertEqual(len(be._tx_log) - n, 3)
+        for ch in (0, 1, 2):
+            self.assertFalse(be._is_dirty(ch))
 
     def test_create_and_delete_user_preset(self):
         be = self._make_backend()
@@ -258,18 +258,37 @@ class TestUdpLoopback(unittest.TestCase):
         QTimer.singleShot(ms, loop.quit)
         loop.exec_()
 
+    def test_three_channel_receive_emits_all_telemetry(self):
+        recv_spec = packets.build_packet_spec(self.bundle.protocol, "recv")
+        frame = b"".join(
+            packets.pack_packet(recv_spec, {
+                "Position": float(i + 1),
+                "LoadCellForce": -float(i + 1) / 2,
+            })
+            for i in range(3))
+        self.assertEqual(len(frame), 24)
+        self.helper.writeDatagram(frame, QHostAddress("127.0.0.1"), 19200)
+        self._pump(300)
+
+        self.assertTrue(self.be._connected)
+        channels = self.telemetry.records[-1][0]
+        self.assertEqual(sorted(channels), [0, 1, 2])
+        self.assertEqual(channels[2], {"Position": 3.0, "LoadCellForce": -1.5})
+
     def test_loopback_link_telemetry_and_send(self):
         # 1) 模拟控制器发周期帧 → 看门狗上线 + 遥测解析
         recv_spec = packets.build_packet_spec(self.bundle.protocol, "recv")
         frame = b"".join(
             packets.pack_packet(recv_spec, {"Position": 1.5, "LoadCellForce": -2.0})
-            for _ in range(2))
+            for _ in range(3))
         self.helper.writeDatagram(frame, QHostAddress("127.0.0.1"), 19200)
         self._pump(800)
         self.assertTrue(self.be._connected)
         # telemetry_received 合同：单字典 {ch: {Position, LoadCellForce}}（后端信号为 pyqtSignal(dict)）
         self.assertEqual(self.telemetry.records[-1][0][0]["Position"], 1.5)
         self.assertEqual(self.telemetry.records[-1][0][1]["LoadCellForce"], -2.0)
+        self.assertEqual(self.telemetry.records[-1][0][2]["Position"], 1.5)
+        self.assertEqual(self.telemetry.records[-1][0][2]["LoadCellForce"], -2.0)
 
         # 2) 改参数 → 内层下载 → helper 收到 182B，axis=1、zero_calib=False
         self.be.set_packet_field(0, "friction", 5.5)
@@ -388,7 +407,7 @@ class TestApplyNetwork(unittest.TestCase):
         spec = packets.build_packet_spec(self.bundle.protocol, "recv")
         frame = b"".join(
             packets.pack_packet(spec, {"Position": 1.0, "LoadCellForce": -2.0})
-            for _ in range(2))
+            for _ in range(3))
         self.old.writeDatagram(frame, QHostAddress("127.0.0.1"), port)
 
     def test_target_change_reconfigures_and_persists(self):

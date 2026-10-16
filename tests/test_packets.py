@@ -90,7 +90,7 @@ class TestPacketSpecLayout(unittest.TestCase):
                              "字段 %s 偏移/字节数与 C++ 不符" % name)
 
     def test_single_flat_struct(self):
-        """整个 182B 就是一个结构体：无独立报文头，axis=1/2 选通道，两通道共用。"""
+        """整个参数包就是一个结构体：无独立报文头，axis=1/2/3 选择通道。"""
         self.assertEqual(self.spec.groups, ["UDP_UI_Send_To_Controller_Parameter"])
 
 
@@ -103,17 +103,17 @@ class TestRecvFrame(unittest.TestCase):
         self.assertEqual(self.spec.size, 8)
         self.assertEqual(self.spec.fmt, "<ff")
 
-    def test_parse_two_channels(self):
+    def test_parse_three_channels(self):
         payload = b"".join(
             packets.pack_packet(self.spec, {"Position": float(i), "LoadCellForce": -float(i) / 2})
-            for i in range(2))
-        frames = packets.parse_recv_frame(self.spec, payload, 2)
-        self.assertEqual([f["Position"] for f in frames], [0.0, 1.0])
-        self.assertEqual([f["LoadCellForce"] for f in frames], [0.0, -0.5])
+            for i in range(3))
+        frames = packets.parse_recv_frame(self.spec, payload, 3)
+        self.assertEqual([f["Position"] for f in frames], [0.0, 1.0, 2.0])
+        self.assertEqual([f["LoadCellForce"] for f in frames], [0.0, -0.5, -1.0])
 
     def test_bad_frame_size_raises(self):
         with self.assertRaises(packets.ProtocolError):
-            packets.parse_recv_frame(self.spec, b"\x00" * 23, 2)
+            packets.parse_recv_frame(self.spec, b"\x00" * 23, 3)
 
 
 class TestPackUnpack(unittest.TestCase):

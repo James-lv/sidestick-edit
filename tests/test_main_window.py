@@ -122,7 +122,7 @@ class TestMainWindow(unittest.TestCase):
         self.assertTrue(self.win._preset_name.isVisible())
         self.assertEqual(self.win._preset_name.text(),
                  "当前模式：%s" % preset.get("label", preset["id"]))
-        # 编辑页已加载该预设（俯仰/滚转两通道）
+        # 编辑页已加载该预设（三通道）
         self.assertEqual(self.backend.get_editing_preset_id(), preset["id"])
 
     def test_back_button_returns_to_presets(self):

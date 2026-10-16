@@ -124,7 +124,7 @@ pyqt_refactor/
 | `zero` | `(channel: int)` | 置校零脉冲：置位→发→清两帧（防控制器 latch）；点击即发 |
 | `set_control_mode` | `(channel: int, mode: int)` | **控制模式**：0=OFF 1=抖杆 2=脉冲 3=倍脉冲 4=扫频 5=正弦 6=阶跃，点击即发，回灌 `control_mode_changed(ch, mode, dirty)`；开环测试页将当前有完整预设数据的通道传入 |
 | `load_preset` | `(channel: int, preset_id: str)` | 加载预设到**编辑态**（不发，标蓝），并记住当前编辑的预设 id（供内层「下载」判断是否回写）；内层「标准919数据·设置」按钮即此动作（`preset="state_1"`，状态1） |
-| `download_preset` | `(preset_id: str)` | **外层「下载」按钮**：加载预设的俯仰+滚转数据 → 提交 + 两通道下发 + 回灌（黑色）；**不写预设文件**（决策 17） |
+| `download_preset` | `(preset_id: str)` | **外层「下载」按钮**：加载预设的俯仰、滚转、偏航数据 → 提交 + 三通道下发 + 回灌（黑色）；**不写预设文件**（决策 17） |
 | `create_preset` | `()` | **新建**：免弹窗复制 模式6 综合力感 数据生成用户新预设（id 自动 `user_+时间戳`，决策 17/22）→ 原子重写 presets.yaml → 广播 `preset_list_changed` |
 | `update_preset` | `(preset_id: str, data: dict)` | 修改预设条目 → 同上 |
 | `delete_preset` | `(preset_id: str)` | 删除**用户新建**预设（UI 先弹确认；`builtin` 出厂预设后端拒绝，决策 17）→ 原子重写 presets.yaml → 广播 `preset_list_changed` |
@@ -174,7 +174,7 @@ pyqt_refactor/
 | 报文字段定义（structs）、包定义（packets）、网络 4 项（IP/端口）、**通道标识（channel_ids）** | **会**——协议与网络唯一真相源 |
 
 - **network 段只有 4 项**（target_ip / target_port / local_ip / local_port，纯值无包装）。
-- **channel_ids**：2 通道的报文标识常量（index / name / axis=1/2 / forceoffset），随通道固定，不随预设变。
+- **channel_ids**：3 通道的报文标识常量（index / name / axis=1/2/3），随通道固定，不随预设变。
 - **send 包 6 个固定字段已移出协议层**（决策：预设=所有 UDP 发送参数，只有点击才发送）。scaling / tanhuang / zuni1 / zuni2 / showbili / rwa_nihe 现作为每通道 12 字段之一存于 `presets.yaml`（与 6 可变字段同通道），由预设提供、随 Download 下发；协议层不再有默认值兜底。⚠️ zuni2 是阻尼分母，不可为 0（决策 6，校验在 `preset_store.validate_channel_data`）。
 - **单 socket 收发共用**（2026-09-08 确认）：本机只开一个 UDP socket 绑定 `local_port`，收周期回传与发参数包都走它；`target_ip:target_port` 是控制器端。两类报文键名：`recv`（周期回传帧）/ `send`（参数包）。
 - **加载覆盖两层**（低→高）：YAML 默认值 → 命令行参数（`python main.py --target-ip 1.2.3.4`）。
@@ -187,7 +187,7 @@ pyqt_refactor/
 
 **关键字段约定**：
 - `packets.<包>.layout` 引用的结构体字段顺序 = **字节顺序权威**；字段增删 / 调序必须与控制器 C++ `struct` 同步，工具侧提供「实际字节数 vs 期望字节数」自检。
-- send 包对应 C++ 同名结构体 `UDP_UI_Send_To_Controller_Parameter`：**不是分开发送、没有额外报文头**——整个 182B 一次发出，`axis = 1/2` 选通道，两通道共用。
+- send 包对应 C++ 同名结构体 `UDP_UI_Send_To_Controller_Parameter`：**不是分开发送、没有额外报文头**——整个 182B 一次发出，`axis = 1/2/3` 选通道，各通道共用。
 - 字段自带 `{name, type, count, unit, zh}` 元数据：界面渲染时引用 `zh/unit`；`zh` 为空 = 内部字段（如 axis）。**显示精度不在此配置**——由 `core/format.py:format_value` 统一处理（整值→整数，非整值→2 位，小量<0.01→4 位保护）。
 - 字段**不含 min/max**：参数合法范围由控制器 C++ 侧裁决。
 - 曲线换算（curve_sources / curve 约定）已随决策 18 删除——数据即报文原值。
@@ -198,7 +198,7 @@ pyqt_refactor/
 
 ### 6.3 presets.yaml —— 预设库（出厂保护 + 用户可写，决策 17/18）
 
-**每条预设（状态）= 俯仰(0) + 滚转(1) 两通道 × 完整数据（报文原值，无换算）**；脚蹬通道已整体移除（2026-09-09：协议、UI、测试全部同步为两通道，周期回传 16B）。pyyaml 直接解析，校验在 `core/preset_store.py`：
+**每条预设（状态）= 俯仰(0) + 滚转(1) + 偏航(2) 三通道 × 完整数据（报文原值，无换算）**。pyyaml 直接解析，校验在 `core/preset_store.py`：
 
 ```yaml
 presets:
@@ -236,7 +236,7 @@ presets:
 | 删除 | ❌ 禁用（后端拒绝） | ✅ 确认后写文件 |
 | 上层 Edit | 加载到内层编辑器（标蓝不发送） | 同左 |
 | 内层微调→下载 | 只发 UDP，不写文件 | 发 UDP + 当前通道完整数据回写文件 |
-| 上层下载 | 加载 + 俯仰/滚转两通道发送，不写文件 | 同左 |
+| 上层下载 | 加载 + 俯仰/滚转/偏航三通道发送，不写文件 | 同左 |
 
 写文件动作 = **全量原子重写** presets.yaml（文件头注释保留，条目间手工注释会被冲掉），广播 `preset_list_changed`；UI 不直接碰文件。
 
@@ -250,8 +250,8 @@ presets:
 | 模块 | 常量 |
 |---|---|
 | `main_window.py` | 窗口 1440×860；标题「BCLS 操纵上位机」；自上而下：**顶部蓝条**（返回预设 / 标题 / 连接灯 / 作为主机）+ **QStackedWidget 双层页面**（预设管理页↔编辑页）+ **底部灰框控制模式按钮组**；灰框只服务俯仰（axis=1） |
-| `preset_manager.py` | 启动首页；左 `QTreeWidget` 按 category 分组（State→User），右固定 260px 按钮列（新建/编辑/删除/下载）+ 实时状态面板（两通道 Angle/Force） |
-| `editor_page.py` | `QTabWidget` 按已配置预设数据生成通道页；切 tab 时刷新当前通道 |
+| `preset_manager.py` | 启动首页；左 `QTreeWidget` 按 category 分组（State→User），右固定 260px 按钮列（新建/编辑/删除/下载）+ 实时状态面板（三通道 Angle/Force） |
+| `editor_page.py` | `QTabWidget` 按已配置预设数据生成通道页；当前配置为俯仰/滚转/偏航三个 tab，切 tab 时刷新当前通道 |
 | `channel_page.py` | 左右分栏：左侧力感参数 4 个 lineedit（friction / breakout_force / negative_stop / positive_stop）+ 18 点 QLineEdit 网格（位置/力，正负半区各 9 行）；右侧 pyqtgraph 标定曲线 + 实时遥测轨迹 + 操作按钮（清轨迹/自适应/存图/标定曲线开关） |
 | `widgets/control_mode_box.py` | 底部灰框：6 个 checkable 按钮（抖杆/脉冲/倍脉冲/扫频/正弦/阶跃），显示各模式幅值与非负频率，悬停按钮显示信号说明；同按钮再点 OFF，不同按钮直接切换 |
 | `style.qss` | 蓝条 `#2f5d8a`、返回按钮透明白字、蓝字脏标记 `QLineEdit[dirty="true"] { color: #1565d8; font-weight: bold; }`、QTabWidget 与灰框样式 |
@@ -260,17 +260,17 @@ presets:
 
 ## 7. 界面行为规格（硬编码实现，本文只定行为）
 
-### 7.1 通道编辑页（俯仰 / 滚转）
+### 7.1 通道编辑页（俯仰 / 滚转 / 偏航）
 
-- 左侧参数面板（分组见 §6.5）+ 右侧曲线区；顶部两通道切换。
+- 左侧参数面板（分组见 §6.5）+ 右侧曲线区；顶部三通道切换。
 - 数值框统一规则：输入完成（editingFinished）→ `set_packet_field`；颜色由 `state_changed(dirty)` 回灌驱动（§5.4）。
 - **18 点表格可编辑**：单元格改动 → `set_packet_field(Position[i] / LoadCellForce[i])`；渲染数据源 `points_changed`（编辑态），dirty 行/格蓝字；标定曲线随编辑态即刷（决策 #24）。
 - 「校限」按钮 = 校零脉冲复用（同原 C++）。
 
 ### 7.2 预设管理页（Joystick，启动首页）
 
-- 左列表（分组显示，User 分组为用户新建）+ 右按钮列（新建 / 编辑 / 删除 / 下载）+ 右下 Status 面板（两通道 Angle/Force 实时值，数据源 `telemetry_received`）。
-- **新建**：免弹窗复制 模式6 综合力感 数据生成用户新预设（决策 17/22）；**编辑 / 双击**：加载到内层编辑器微调（记住编辑中的预设 id）；**删除**：确认框（出厂预设禁用）；**下载**：加载 + 两通道发送（不写文件）。
+- 左列表（分组显示，User 分组为用户新建）+ 右按钮列（新建 / 编辑 / 删除 / 下载）+ 右下 Status 面板（三通道 Angle/Force 实时值，数据源 `telemetry_received`）。
+- **新建**：免弹窗复制 模式6 综合力感 数据生成用户新预设（决策 17/22）；**编辑 / 双击**：加载到内层编辑器微调（记住编辑中的预设 id）；**删除**：确认框（出厂预设禁用）；**下载**：加载 + 三通道发送（不写文件）。
 - 内层微调 → 内层「下载」：提交 + 发送；若编辑中的是**用户新建预设**，同时把当前通道完整数据回写 presets.yaml（出厂预设不回写）。
 
 ### 7.3 状态栏与主机模式（2026-09-09 修正）
@@ -314,9 +314,9 @@ presets:
 | 包 | 方向 | 大小 | 结构 |
 |---|---|---|---|
 | `send` | UI → 控制器 | **182 B** | 单通道参数包，`axis` 字段指定通道（1/2） |
-| `recv` | 控制器 → UI | **16 B** | 2 通道 × 8 B（Position `float` + LoadCellForce `float`） |
+| `recv` | 控制器 → UI | **24 B** | 3 通道 × 8 B（Position `float` + LoadCellForce `float`） |
 
-`send` 包 = **单一结构体**（对应 C++ `UDP_UI_Send_To_Controller_Parameter`，`#pragma pack(push, 1)` 小端）整体一次发出——没有独立报文头，`axis` 字段 = 通道号 1/2，两通道共用同一结构。字节构成：
+`send` 包 = **单一结构体**（对应 C++ `UDP_UI_Send_To_Controller_Parameter`，`#pragma pack(push, 1)` 小端）整体一次发出——没有独立报文头，`axis` 字段 = 通道号 1/2/3，各通道共用同一结构。字节构成：
 
 ```
 host_mode(bool) + axis(int8) + zero_calib(bool) + control_mode(int8)        =   4 B

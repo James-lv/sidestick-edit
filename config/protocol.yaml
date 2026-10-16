@@ -63,6 +63,6 @@ packets:
       - UDP_UI_Send_To_Controller_Parameter
 
   recv:                          # 控制器 → UI：每通道 8B 周期帧
-    repeat: all_channels         # 按通道数重复（固定 2 通道）
+    repeat: all_channels         # 按通道数重复（俯仰、滚转、偏航，共 3 通道）
     layout:
       - FromController_Periodical_Channel

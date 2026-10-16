@@ -29,7 +29,7 @@ def _ch_data(**overrides):
     return data
 
 
-def _state_block(pid, builtin=True, channels=(0, 1)):
+def _state_block(pid, builtin=True, channels=(0, 1, 2)):
     lines = ["  - id: %s" % pid,
              "    label: 状态",
              "    category: State"]
@@ -72,10 +72,10 @@ class TestParseRealFile(unittest.TestCase):
         self.assertEqual(ids, ["state_%d" % i for i in range(1, 8)])
         self.assertTrue(all(preset_store.is_builtin(p) for p in self.presets))
 
-    def test_states_contain_pitch_and_roll_until_yaw_data_is_added(self):
-        """现有预设含俯仰(0)+滚转(1)；偏航(2) 数据为可选。"""
+    def test_states_contain_all_three_channels(self):
+        """每条预设都包含俯仰(0)、滚转(1)和偏航(2)。"""
         for p in self.presets:
-            self.assertEqual(sorted(p["channels"]), [0, 1])
+            self.assertEqual(sorted(p["channels"]), [0, 1, 2])
 
     def test_channel_data_structure(self):
         ch0 = self.presets[0]["channels"][0]
@@ -102,7 +102,7 @@ class TestRenderRoundtrip(unittest.TestCase):
 
     def test_no_yaml_anchors_on_shared_data(self):
         """多条预设引用同一数据对象时，渲染不得产生 YAML 锚点/别名。"""
-        shared = {0: _ch_data(), 1: _ch_data()}
+        shared = {0: _ch_data(), 1: _ch_data(), 2: _ch_data()}
         presets = [{"id": "a", "channels": shared}, {"id": "b", "channels": shared}]
         text = preset_store.render_presets(presets)
         self.assertNotIn("&id", text)
@@ -126,21 +126,19 @@ class TestParseErrors(unittest.TestCase):
         text = "presets:\n" + _state_block("s1") + _state_block("s1")
         self._assert_bad(text)
 
-    def test_optional_yaw_channel_is_accepted(self):
+    def test_all_three_channels_are_accepted(self):
         text = ("presets:\n"
                 + _state_block("a", channels=(0, 1, 2))
                 + _state_block("b", channels=(0, 1, 2)))
         parsed = preset_store.parse_presets(text)
         self.assertEqual(sorted(parsed[0]["channels"]), [0, 1, 2])
 
-    def test_partial_optional_yaw_configuration_is_rejected(self):
-        text = ("presets:\n"
-                + _state_block("a", channels=(0, 1, 2))
-                + _state_block("b", channels=(0, 1)))
+    def test_preset_missing_yaw_channel_is_rejected(self):
+        text = "presets:\n" + _state_block("a", channels=(0, 1))
         self._assert_bad(text)
 
     def test_preset_missing_roll_channel(self):
-        """预设必须同时含俯仰+滚转。"""
+        """预设必须同时含俯仰、滚转和偏航。"""
         block = ("  - id: a\n"
                  "    channels:\n"
                  "      0:\n"
@@ -212,10 +210,12 @@ class TestFileIO(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "presets.yaml"
             presets = [{"id": "state_1", "label": "状态1", "category": "State",
-                        "builtin": True, "channels": {0: _ch_data(), 1: _ch_data()}}]
+                        "builtin": True, "channels": {
+                            0: _ch_data(), 1: _ch_data(), 2: _ch_data()}}]
             preset_store.save_presets(p, presets)
             self.assertFalse((Path(tmp) / "presets.yaml.tmp").exists())  # 原子写无残留
-            new = [{"id": "user_1", "channels": {0: _ch_data(), 1: _ch_data()}}]
+            new = [{"id": "user_1", "channels": {
+                0: _ch_data(), 1: _ch_data(), 2: _ch_data()}}]
             preset_store.save_presets(p, new)
             saved_presets = preset_store.parse_presets(
                 p.read_text(encoding="utf-8"))

@@ -6,7 +6,7 @@
 
 检查项：
     1. 配置加载（protocol.yaml：网络/通道标识/固定值）
-    2. send 参数包逐字段偏移表 + 断言 182B；recv 周期帧单通道 8B × 2 = 16B
+    2. send 参数包逐字段偏移表 + 断言 182B；recv 周期帧单通道 8B × 3 = 24B
     3. 182B 组包/解包往返一致（用 模式1 预设的通道数据实组包）
     4. presets.yaml 解析/渲染往返一致
     5. 报错路径：配置文件缺失/损坏 → 明确报错（恢复由打包启动层负责，决策 16）
@@ -58,7 +58,7 @@ def main() -> int:
     # ---------- 1. 配置加载 ----------
     print("\n[1] 配置加载")
     bundle = config_loader.load_all()
-    check("通道标识为 1..3 项", 1 <= len(bundle.channels()) <= 3,
+    check("通道标识为 3 项", len(bundle.channels()) == 3,
           "实际 %d" % len(bundle.channels()))
     check("network 端口", bundle.protocol["network"]["local_port"] == 9200
           and bundle.protocol["network"]["target_port"] == 9300)
@@ -75,8 +75,11 @@ def main() -> int:
     print("  单通道块 = %d B, 字段: %s"
           % (spec1.size, ", ".join(f.name for f in spec1.fields)))
     check("recv 单通道块 = 8 B", spec1.size == 8, "实际 %d" % spec1.size)
+    check("recv 通道数 = 3", n_channels == 3, "实际 %d" % n_channels)
     sample_frame = b"".join([packets.pack_packet(spec1, {"Position": 1.5, "LoadCellForce": -2.25})
                              for _ in range(n_channels)])
+    check("recv 周期帧 = 24 B", len(sample_frame) == 24,
+          "实际 %d" % len(sample_frame))
     check("周期帧长度正确", len(sample_frame) == spec1.size * n_channels,
           "实际 %d" % len(sample_frame))
     frames = packets.parse_recv_frame(spec1, sample_frame, n_channels)
@@ -146,7 +149,7 @@ def main() -> int:
     if _failures:
         print("自检未通过：%d 项 → %s" % (len(_failures), "; ".join(_failures)))
         return 1
-    print("自检全部通过（send=182B / recv=16B / 往返一致 / 预设）")
+    print("自检全部通过（send=182B / recv=24B / 往返一致 / 预设）")
     return 0
 
 

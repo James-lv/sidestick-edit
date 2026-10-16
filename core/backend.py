@@ -417,7 +417,7 @@ class BackendService(QObject):
             ok = self._build_and_send(ch)
             self.params_ack.emit(ch, ok)
             self._push_all(ch)
-        self._log("预设 %r 已下发（俯仰/滚转两通道）" % preset_id)
+        self._log("预设 %r 已下发（俯仰/滚转/偏航三通道）" % preset_id)
 
     def _maybe_writeback(self, ch):
         """内层「下载」后：用户新建预设 → 回写当前通道数据（出厂不回写）。"""
