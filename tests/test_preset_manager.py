@@ -112,11 +112,17 @@ class TestPresetManagerPage(unittest.TestCase):
         self.backend.telemetry_received.emit({
             0: {"Position": 1.23, "LoadCellForce": 4.56},
             1: {"Position": -0.5, "LoadCellForce": 0.12},
-            2: {"Position": 2.5, "LoadCellForce": -3.75},
         })
         QApplication.instance().processEvents()
         self.assertEqual(self.page._status_labels[0][0].text(), "1.23")
         self.assertEqual(self.page._status_labels[0][1].text(), "4.56")
+        self.assertEqual(self.page._status_labels[2][0].text(), "—")
+        self.assertEqual(self.page._status_labels[2][1].text(), "—")
+
+        self.backend.telemetry_received.emit({
+            2: {"Position": 2.5, "LoadCellForce": -3.75},
+        })
+        QApplication.instance().processEvents()
         self.assertEqual(self.page._status_labels[2][0].text(), "2.50")
         self.assertEqual(self.page._status_labels[2][1].text(), "-3.75")
 

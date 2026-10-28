@@ -270,13 +270,27 @@ class BackendService(QObject):
     # UDP 回调
     # ------------------------------------------------------------
     def _on_frame(self, data):
+        block_size = self._recv_spec.size
+        if block_size <= 0 or len(data) % block_size:
+            self._error("周期帧解析",
+                        "回传帧长度不符：单通道 %d 字节，实际 %d 字节"
+                        % (block_size, len(data)))
+            return
+        n = len(data) // block_size
+        if not 1 <= n <= len(self._channel_indexes):
+            self._error("周期帧解析",
+                        "回传帧通道数不符：配置 %d 个，实际 %d 个"
+                        % (len(self._channel_indexes), n))
+            return
         try:
-            n = len(self._channel_indexes)
             frames = packets.parse_recv_frame(self._recv_spec, data, n)
         except packets.ProtocolError as exc:
             self._error("周期帧解析", str(exc))
             return
-        self.telemetry_received.emit({i: frames[i] for i in range(n)})
+        channel_indexes = self._channel_indexes[:n]
+        self.telemetry_received.emit({
+            channel_indexes[i]: frames[i] for i in range(n)
+        })
 
     def _on_link(self, connected):
         self._connected = connected

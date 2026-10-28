@@ -150,7 +150,7 @@ PYTHONIOENCODING=utf-8 python -m unittest discover -s tests -t .
     - `backend.apply_network(values)→(ok,msg)`：local 变更才试绑（未变时当前 socket 正占端口）→ reconfig 立即生效 → 内存 bundle 与磁盘 protocol.yaml 同步；`--no-udp` 下拒绝。
     - UI：QMainWindow 菜单栏「设置→网络绑定…」→ `ui/network_dialog.py`（本机绑定/控制器两组 4 字段，IPv4+端口校验，失败 QMessageBox 保留对话框）；qss 补 QMenuBar/QMenu/QDialog 蓝系样式；main_window 布局注释加菜单栏行。
     - 验证：config_loader 4 用例 + udp probe 2 用例 + backend 集成 2 用例（真 UDP 回环：改 target 后新端口收到 182B、旧端口不再收、磁盘重载值正确、占用端口被拒）新增全过；**104 用例全绿**（96+8）；selfcheck 全通过。
-26. **恢复三通道实时回传与预设**（2026-10-16，用户确认）：俯仰(0)/滚转(1)/偏航(2) 每通道回传 Position + LoadCellForce，周期帧共 24B；每条预设必须包含三通道，整套状态下载也下发三通道。同步更新协议注释、自检、UI 回传测试和架构文档。
+26. **启用三通道预设并兼容两/三通道遥测**（2026-10-16，用户确认）：UI/预设支持俯仰(0)/滚转(1)/偏航(2) 三通道；控制器回传可为 16B（俯仰/滚转）或 24B（再含偏航），只显示帧内实际回传的通道。默认本机绑定 `0.0.0.0` 以接收物理网卡数据。同步更新协议注释、自检、UDP/UI 回传测试和架构文档。
 
 ---
 

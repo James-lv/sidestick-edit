@@ -47,6 +47,7 @@ class TestLoadRealConfig(unittest.TestCase):
         self.assertIsInstance(net["local_port"], int)
         self.assertIsInstance(net["target_port"], int)
         self.assertEqual((net["local_port"], net["target_port"]), (9200, 9300))
+        self.assertEqual(net["local_ip"], "0.0.0.0")
 
     def test_no_send_defaults_section(self):
         """决策：协议层不再有 send_defaults 段（固定字段随预设下发）。"""

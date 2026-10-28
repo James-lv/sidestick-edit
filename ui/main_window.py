@@ -211,8 +211,8 @@ class MainWindow(QMainWindow):
 
         mode_container = QFrame(content)
         mode_container.setObjectName("ModeContainer")
-        mode_container.setMinimumWidth(330)
-        mode_container.setMaximumWidth(420)
+        mode_container.setMinimumWidth(420)
+        mode_container.setMaximumWidth(450)
         mode_container.setMinimumHeight(240)
         mode_container.setStyleSheet(
             "QFrame#ModeContainer {"

@@ -50,6 +50,7 @@ class ControlModeBox(QGroupBox):
         self._buttons = {}
         self._amp_inputs = {}
         self._freq_inputs = {}
+        self._time_inputs = {}
         self._columns = max(1, int(columns))
 
         self.setTitle("测试模式")
@@ -83,7 +84,7 @@ class ControlModeBox(QGroupBox):
             "  border-radius: 6px;"
             "  text-align: center;"
             "  padding: 0 12px;"
-            "  min-width: 90px;"
+            "  min-width: 50px;"
             "  max-width: 120px;"
             "  min-height: 32px;"
             "  font-size: 16px;"
@@ -110,14 +111,14 @@ class ControlModeBox(QGroupBox):
             "  background: #ffffff;"
             "  min-height: 30px;"
             "  max-height: 30px;"
-            "  min-width: 70px;"
-            "  max-width: 90px;"
+            "  min-width: 56px;"
+            "  max-width: 56px;"
             "  padding: 0 6px;"
-            "  font-size: 15px;"
+            "  font-size: 14px;"
             "}"
             "QGroupBox#ModeContainer QLabel {"
             "  color: #2a2a2a;"
-            "  font-size: 16px;"
+            "  font-size: 15px;"
             "  padding: 0 2px;"
             "  font-weight: normal;"
             "}"
@@ -135,14 +136,14 @@ class ControlModeBox(QGroupBox):
             row.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             h = QHBoxLayout(row)
             h.setContentsMargins(0, 0, 0, 0)
-            h.setSpacing(4)
+            h.setSpacing(2)
 
             btn = QPushButton(label)
             btn.setCheckable(True)
             btn.setAutoExclusive(False)
             btn.setChecked(False)
             btn.setToolTip(description)
-            btn.setFixedWidth(100)
+            btn.setFixedWidth(68)
             btn.setFixedHeight(32)
             btn.setStyleSheet(
                 "QPushButton {"
@@ -159,28 +160,70 @@ class ControlModeBox(QGroupBox):
             )
             btn.clicked.connect(lambda checked, m=mode: self._on_clicked(m))
             h.addWidget(btn)
+            h.addSpacing(6)
 
             amp_label = QLabel("幅值")
-            amp_label.setFixedWidth(42)
+            amp_label.setFixedWidth(40)
             amp_edit = QLineEdit(amplitude)
-            amp_edit.setFixedWidth(80)
-            amp_edit.setAlignment(Qt.AlignRight)
+            amp_edit.setStyleSheet(
+                "QLineEdit {"
+                "  min-width: 42px;"
+                "  max-width: 42px;"
+                "  padding: 2px 2px;"
+                "}"
+            )
+            amp_edit.setAlignment(Qt.AlignCenter)
             h.addWidget(amp_label)
+            h.addSpacing(2)
             h.addWidget(amp_edit)
+            h.addSpacing(14)
 
             freq_label = QLabel("频率")
-            freq_label.setFixedWidth(42)
+            freq_label.setFixedWidth(40)
             freq_edit = QLineEdit(frequency)
-            freq_edit.setFixedWidth(80)
-            freq_edit.setAlignment(Qt.AlignRight)
+            freq_edit.setStyleSheet(
+                "QLineEdit {"
+                "  min-width: 30px;"
+                "  max-width: 30px;"
+                "  padding: 2px 2px;"
+                "}"
+            )
+            freq_edit.setAlignment(Qt.AlignCenter)
             h.addWidget(freq_label)
+            h.addSpacing(2)
             h.addWidget(freq_edit)
+            hz_label = QLabel("Hz")
+            hz_label.setFixedWidth(24)
+            hz_label.setStyleSheet("padding: 0px;")
+            h.addWidget(hz_label)
+            h.addSpacing(14)
+
+            time_label = QLabel("时间")
+            time_label.setFixedWidth(40)
+            time_edit = QLineEdit()
+            time_edit.setStyleSheet(
+                "QLineEdit {"
+                "  min-width: 30px;"
+                "  max-width: 30px;"
+                "  padding: 2px 2px;"
+                "}"
+            )
+            time_edit.setAlignment(Qt.AlignCenter)
+            h.addWidget(time_label)
+            h.addSpacing(2)
+            h.addWidget(time_edit)
+            s_label = QLabel("S")
+            s_label.setFixedWidth(18)
+            s_label.setStyleSheet("padding: 0px;")
+            h.addWidget(s_label)
+            
 
             h.addStretch(1)
             layout.addWidget(row, 0, Qt.AlignTop)
             self._buttons[mode] = btn
             self._amp_inputs[mode] = amp_edit
             self._freq_inputs[mode] = freq_edit
+            self._time_inputs[mode] = time_edit
 
     # ------------------------------------------------------------
     # 状态管理

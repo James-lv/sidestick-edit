@@ -37,7 +37,7 @@ RECV_BUFFER = 65535
 class UdpManager(QObject):
     """backend 看到的 UDP 门面：start/stop + send_datagram + 三个信号。
 
-    - frame_received(bytes)：最新一帧周期回传（24B = 每通道 8B × 3 通道）
+    - frame_received(bytes)：最新一帧周期回传（16B/24B = 每通道 8B × 2/3 通道）
     - link_changed(bool)：看门狗连/断链
     - socket_error(str)：绑定/发送失败
     """

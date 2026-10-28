@@ -75,7 +75,7 @@ def main() -> int:
     print("  单通道块 = %d B, 字段: %s"
           % (spec1.size, ", ".join(f.name for f in spec1.fields)))
     check("recv 单通道块 = 8 B", spec1.size == 8, "实际 %d" % spec1.size)
-    check("recv 通道数 = 3", n_channels == 3, "实际 %d" % n_channels)
+    check("recv 通道数支持 2/3", n_channels == 3, "配置 %d 个通道" % n_channels)
     sample_frame = b"".join([packets.pack_packet(spec1, {"Position": 1.5, "LoadCellForce": -2.25})
                              for _ in range(n_channels)])
     check("recv 周期帧 = 24 B", len(sample_frame) == 24,
@@ -85,6 +85,11 @@ def main() -> int:
     frames = packets.parse_recv_frame(spec1, sample_frame, n_channels)
     check("周期帧解析", all(f["Position"] == 1.5 and f["LoadCellForce"] == -2.25
                             for f in frames))
+    two_channel_frame = sample_frame[:spec1.size * 2]
+    two_channel_frames = packets.parse_recv_frame(spec1, two_channel_frame, 2)
+    check("两通道周期帧兼容（16 B）",
+          len(two_channel_frames) == 2 and
+          len(two_channel_frame) == spec1.size * 2)
 
     # ---------- 4. 用 default 预设实组包 + 往返 ----------
     print("\n[4] send 组包/解包往返（模式1 · 俯仰通道）")

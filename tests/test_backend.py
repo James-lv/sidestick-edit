@@ -275,6 +275,23 @@ class TestUdpLoopback(unittest.TestCase):
         self.assertEqual(sorted(channels), [0, 1, 2])
         self.assertEqual(channels[2], {"Position": 3.0, "LoadCellForce": -1.5})
 
+    def test_two_channel_receive_emits_available_telemetry(self):
+        recv_spec = packets.build_packet_spec(self.bundle.protocol, "recv")
+        frame = b"".join(
+            packets.pack_packet(recv_spec, {
+                "Position": float(i + 1),
+                "LoadCellForce": -float(i + 1) / 2,
+            })
+            for i in range(2))
+        self.assertEqual(len(frame), 16)
+        self.helper.writeDatagram(frame, QHostAddress("127.0.0.1"), 19200)
+        self._pump(300)
+
+        self.assertTrue(self.be._connected)
+        channels = self.telemetry.records[-1][0]
+        self.assertEqual(sorted(channels), [0, 1])
+        self.assertEqual(channels[1], {"Position": 2.0, "LoadCellForce": -1.0})
+
     def test_loopback_link_telemetry_and_send(self):
         # 1) 模拟控制器发周期帧 → 看门狗上线 + 遥测解析
         recv_spec = packets.build_packet_spec(self.bundle.protocol, "recv")

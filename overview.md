@@ -59,7 +59,7 @@ python -m unittest discover -s tests -t .
 ## 验证结果
 
 - `python -m unittest discover -s tests -t .`：**104 用例全绿**（2026-09-09 历史验证结果）。
-- `python -m core.selfcheck`：三通道 recv=24B 已验证；当前自检仍因 send 布局实际为 184B、旧断言期望 182B 而返回失败。
+- `python -m core.selfcheck`：recv 支持 16/24B（2/3 通道）；当前自检仍因 send 布局实际为 184B、旧断言期望 182B 而返回失败。
 - offscreen 冒烟截图：`docs/screenshots/page0_presets.png`、`docs/screenshots/page1_editor.png`。
 - 顶部菜单栏「设置→网络绑定…」：运行中改本机/控制器 IP 与端口，立即生效并写回 protocol.yaml（决策 25）。
 

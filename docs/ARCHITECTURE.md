@@ -174,6 +174,7 @@ pyqt_refactor/
 | 报文字段定义（structs）、包定义（packets）、网络 4 项（IP/端口）、**通道标识（channel_ids）** | **会**——协议与网络唯一真相源 |
 
 - **network 段只有 4 项**（target_ip / target_port / local_ip / local_port，纯值无包装）。
+- `local_ip` 默认 `0.0.0.0`，监听所有本机网卡；控制器回传 16 B（俯仰/滚转）或 24 B（再含偏航）都可解析。
 - **channel_ids**：3 通道的报文标识常量（index / name / axis=1/2/3），随通道固定，不随预设变。
 - **send 包 6 个固定字段已移出协议层**（决策：预设=所有 UDP 发送参数，只有点击才发送）。scaling / tanhuang / zuni1 / zuni2 / showbili / rwa_nihe 现作为每通道 12 字段之一存于 `presets.yaml`（与 6 可变字段同通道），由预设提供、随 Download 下发；协议层不再有默认值兜底。⚠️ zuni2 是阻尼分母，不可为 0（决策 6，校验在 `preset_store.validate_channel_data`）。
 - **单 socket 收发共用**（2026-09-08 确认）：本机只开一个 UDP socket 绑定 `local_port`，收周期回传与发参数包都走它；`target_ip:target_port` 是控制器端。两类报文键名：`recv`（周期回传帧）/ `send`（参数包）。
@@ -314,7 +315,7 @@ presets:
 | 包 | 方向 | 大小 | 结构 |
 |---|---|---|---|
 | `send` | UI → 控制器 | **182 B** | 单通道参数包，`axis` 字段指定通道（1/2） |
-| `recv` | 控制器 → UI | **24 B** | 3 通道 × 8 B（Position `float` + LoadCellForce `float`） |
+| `recv` | 控制器 → UI | **16/24 B** | 2/3 通道 × 8 B（Position `float` + LoadCellForce `float`）；缺少的通道保持 `—` |
 
 `send` 包 = **单一结构体**（对应 C++ `UDP_UI_Send_To_Controller_Parameter`，`#pragma pack(push, 1)` 小端）整体一次发出——没有独立报文头，`axis` 字段 = 通道号 1/2/3，各通道共用同一结构。字节构成：
 

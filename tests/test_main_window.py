@@ -71,9 +71,11 @@ class TestMainWindow(unittest.TestCase):
         self.assertEqual(len(self.win._mode_box._buttons), 6)
         self.assertEqual(len(self.win._mode_box._amp_inputs), 6)
         self.assertEqual(len(self.win._mode_box._freq_inputs), 6)
+        self.assertEqual(len(self.win._mode_box._time_inputs), 6)
         for mode in self.win._mode_box._buttons:
             self.assertIsNotNone(self.win._mode_box._amp_inputs[mode])
             self.assertIsNotNone(self.win._mode_box._freq_inputs[mode])
+            self.assertEqual(self.win._mode_box._time_inputs[mode].text(), "")
         self.assertTrue(self.win._mode_box.isEnabled())
 
         self.backend.set_host_mode(True)
