@@ -44,14 +44,18 @@ class ControlModeBox(QGroupBox):
         6: ("0.5", "0", "阶跃：0–6 秒保持 +0.5，之后恢复为 0；无周期振荡。"),
     }
 
-    def __init__(self, parent=None, columns=1):
+    def __init__(self, parent=None, columns=1, mode_parameters=None):
         super().__init__(parent)
         self._current_mode = 0
         self._buttons = {}
         self._amp_inputs = {}
         self._freq_inputs = {}
         self._time_inputs = {}
+        self._sweep_details = {}
+        self._sweep_start_inputs = {}
+        self._sweep_end_inputs = {}
         self._columns = max(1, int(columns))
+        self._mode_parameters = mode_parameters or {}
 
         self.setTitle("测试模式")
         self.setObjectName("ModeContainer")
@@ -131,12 +135,23 @@ class ControlModeBox(QGroupBox):
 
         for mode, label in self._BUTTONS:
             amplitude, frequency, description = self._MODE_DETAILS[mode]
+            parameters = self._mode_parameters.get(mode, {})
+            amplitude = self._format_parameter(
+                parameters.get("amplitude"), amplitude)
+            if mode == 4:
+                frequency = "%s–%s" % (
+                    self._format_parameter(parameters.get("frequency_start"), "0.5"),
+                    self._format_parameter(parameters.get("frequency_end"), "5.0"))
+            else:
+                frequency = self._format_parameter(
+                    parameters.get("frequency"), frequency)
             row = QWidget(self)
             row.setFixedHeight(36)
             row.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             h = QHBoxLayout(row)
             h.setContentsMargins(0, 0, 0, 0)
             h.setSpacing(2)
+            h.setAlignment(Qt.AlignTop)
 
             btn = QPushButton(label)
             btn.setCheckable(True)
@@ -159,7 +174,7 @@ class ControlModeBox(QGroupBox):
                 "}"
             )
             btn.clicked.connect(lambda checked, m=mode: self._on_clicked(m))
-            h.addWidget(btn)
+            h.addWidget(btn, 0, Qt.AlignTop)
             h.addSpacing(6)
 
             amp_label = QLabel("幅值")
@@ -173,13 +188,11 @@ class ControlModeBox(QGroupBox):
                 "}"
             )
             amp_edit.setAlignment(Qt.AlignCenter)
-            h.addWidget(amp_label)
+            h.addWidget(amp_label, 0, Qt.AlignVCenter)
             h.addSpacing(2)
-            h.addWidget(amp_edit)
+            h.addWidget(amp_edit, 0, Qt.AlignVCenter)
             h.addSpacing(14)
 
-            freq_label = QLabel("频率")
-            freq_label.setFixedWidth(40)
             freq_edit = QLineEdit(frequency)
             freq_edit.setStyleSheet(
                 "QLineEdit {"
@@ -189,18 +202,83 @@ class ControlModeBox(QGroupBox):
                 "}"
             )
             freq_edit.setAlignment(Qt.AlignCenter)
-            h.addWidget(freq_label)
-            h.addSpacing(2)
-            h.addWidget(freq_edit)
             hz_label = QLabel("Hz")
             hz_label.setFixedWidth(24)
             hz_label.setStyleSheet("padding: 0px;")
-            h.addWidget(hz_label)
+
+            freq_column = QWidget(row)
+            freq_column.setFixedWidth(108)
+            freq_column_layout = QVBoxLayout(freq_column)
+            freq_column_layout.setContentsMargins(0, 0, 0, 0)
+            freq_column_layout.setSpacing(2)
+            freq_top_row = QWidget(freq_column)
+            freq_top_layout = QHBoxLayout(freq_top_row)
+            freq_top_layout.setContentsMargins(0, 0, 0, 0)
+            freq_top_layout.setSpacing(2)
+            freq_label = QLabel("频率")
+            freq_label.setFixedWidth(40)
+            freq_top_layout.addWidget(freq_label)
+            freq_top_layout.addWidget(freq_edit)
+            freq_top_layout.addWidget(hz_label)
+            freq_column_layout.addWidget(freq_top_row)
+
+            sweep_details = QWidget(freq_column)
+            sweep_details_layout = QVBoxLayout(sweep_details)
+            sweep_details_layout.setContentsMargins(0, 0, 0, 0)
+            sweep_details_layout.setSpacing(2)
+            sweep_start_row = QWidget(sweep_details)
+            sweep_start_layout = QHBoxLayout(sweep_start_row)
+            sweep_start_layout.setContentsMargins(0, 0, 0, 0)
+            sweep_start_layout.setSpacing(2)
+            sweep_start_label = QLabel("起始")
+            sweep_start_label.setFixedWidth(40)
+            sweep_start = self._mode_parameters.get(mode, {}).get(
+                "frequency_start", 0.5)
+            sweep_start_edit = QLineEdit(self._format_number(sweep_start))
+            sweep_start_edit.setStyleSheet(
+                "QLineEdit {"
+                "  min-width: 42px;"
+                "  max-width: 42px;"
+                "  padding: 2px;"
+                "}"
+            )
+            sweep_start_edit.setAlignment(Qt.AlignCenter)
+            sweep_start_layout.addWidget(sweep_start_label)
+            sweep_start_layout.addWidget(sweep_start_edit)
+            sweep_start_layout.addStretch(1)
+            sweep_details_layout.addWidget(sweep_start_row)
+
+            sweep_end_row = QWidget(sweep_details)
+            sweep_end_layout = QHBoxLayout(sweep_end_row)
+            sweep_end_layout.setContentsMargins(0, 0, 0, 0)
+            sweep_end_layout.setSpacing(2)
+            sweep_end_label = QLabel("终止")
+            sweep_end_label.setFixedWidth(40)
+            sweep_end = self._mode_parameters.get(mode, {}).get(
+                "frequency_end", 5.0)
+            sweep_end_edit = QLineEdit(self._format_number(sweep_end))
+            sweep_end_edit.setStyleSheet(
+                "QLineEdit {"
+                "  min-width: 42px;"
+                "  max-width: 42px;"
+                "  padding: 2px;"
+                "}"
+            )
+            sweep_end_edit.setAlignment(Qt.AlignCenter)
+            sweep_end_layout.addWidget(sweep_end_label)
+            sweep_end_layout.addWidget(sweep_end_edit)
+            sweep_end_layout.addStretch(1)
+            sweep_details_layout.addWidget(sweep_end_row)
+            sweep_details.hide()
+            freq_column_layout.addWidget(sweep_details)
+            h.addWidget(freq_column, 0, Qt.AlignTop)
             h.addSpacing(14)
 
             time_label = QLabel("时间")
             time_label.setFixedWidth(40)
-            time_edit = QLineEdit()
+            duration = self._mode_parameters.get(mode, {}).get("duration")
+            time_edit = QLineEdit(
+                "" if duration is None else self._format_number(duration))
             time_edit.setStyleSheet(
                 "QLineEdit {"
                 "  min-width: 30px;"
@@ -209,21 +287,31 @@ class ControlModeBox(QGroupBox):
                 "}"
             )
             time_edit.setAlignment(Qt.AlignCenter)
-            h.addWidget(time_label)
+            h.addWidget(time_label, 0, Qt.AlignVCenter)
             h.addSpacing(2)
-            h.addWidget(time_edit)
+            h.addWidget(time_edit, 0, Qt.AlignVCenter)
             s_label = QLabel("S")
             s_label.setFixedWidth(18)
             s_label.setStyleSheet("padding: 0px;")
-            h.addWidget(s_label)
-            
+            h.addWidget(s_label, 0, Qt.AlignVCenter)
 
             h.addStretch(1)
-            layout.addWidget(row, 0, Qt.AlignTop)
+            layout.addWidget(row, 0, Qt.AlignVCenter)
             self._buttons[mode] = btn
             self._amp_inputs[mode] = amp_edit
             self._freq_inputs[mode] = freq_edit
             self._time_inputs[mode] = time_edit
+            self._sweep_details[mode] = sweep_details
+            self._sweep_start_inputs[mode] = sweep_start_edit
+            self._sweep_end_inputs[mode] = sweep_end_edit
+
+    @staticmethod
+    def _format_number(value):
+        return ("%g" % float(value))
+
+    @classmethod
+    def _format_parameter(cls, value, fallback):
+        return fallback if value is None else cls._format_number(value)
 
     # ------------------------------------------------------------
     # 状态管理
@@ -234,6 +322,14 @@ class ControlModeBox(QGroupBox):
         self.set_mode(target_mode)
         self.mode_selected.emit(self._current_mode)
 
+    def _set_sweep_details_visible(self, visible: bool):
+        details = self._sweep_details.get(4)
+        if details is None:
+            return
+        details.setVisible(visible)
+        row = details.parentWidget().parentWidget()
+        row.setFixedHeight(118 if visible else 36)
+
     def set_mode(self, mode: int):
         """由调用方回灌当前通道模式（0..6），同步按钮按下态。"""
         if not 0 <= mode <= 6:
@@ -241,6 +337,7 @@ class ControlModeBox(QGroupBox):
         self._current_mode = mode
         for m, btn in self._buttons.items():
             btn.setChecked(m == mode)
+        self._set_sweep_details_visible(mode == 4)
 
     def get_mode(self) -> int:
         return self._current_mode

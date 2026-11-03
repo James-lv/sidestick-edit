@@ -44,9 +44,10 @@ class MainWindow(QMainWindow):
     #: 预设管理页 / 编辑页 / 测试页在 QStackedWidget 中的下标
     PAGE_PRESETS, PAGE_EDITOR, PAGE_TEST = 0, 1, 2
 
-    def __init__(self, backend, parent=None):
+    def __init__(self, backend, parent=None, test_modes=None):
         super().__init__(parent)
         self._backend = backend
+        self._test_modes = test_modes if test_modes is not None else {}
         self._channels_by_axis = {
             channel["axis"]: channel for channel in backend.channels()
         }
@@ -224,7 +225,8 @@ class MainWindow(QMainWindow):
         mode_layout = QVBoxLayout(mode_container)
         mode_layout.setContentsMargins(0, 0, 0, 0)
         mode_layout.setSpacing(0)
-        self._mode_box = ControlModeBox(mode_container, columns=1)
+        self._mode_box = ControlModeBox(
+            mode_container, columns=1, mode_parameters=self._test_modes)
         self._mode_box.setEnabled(True)
         mode_layout.addWidget(self._mode_box)
 

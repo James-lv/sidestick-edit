@@ -53,6 +53,11 @@ class TestLoadRealConfig(unittest.TestCase):
         """决策：协议层不再有 send_defaults 段（固定字段随预设下发）。"""
         self.assertNotIn("send_defaults", self.bundle.protocol)
 
+    def test_test_modes_are_loaded(self):
+        self.assertEqual(self.bundle.test_modes[1]["amplitude"], 100.0)
+        self.assertEqual(self.bundle.test_modes[4]["frequency_end"], 5.0)
+        self.assertEqual(self.bundle.test_modes[6]["duration"], 6.0)
+
 
 class TestCliOverrides(unittest.TestCase):
     def test_apply_and_log(self):

@@ -51,7 +51,7 @@ def main(argv=None) -> int:
     backend.start()
 
     from ui.main_window import MainWindow
-    win = MainWindow(backend)
+    win = MainWindow(backend, test_modes=bundle.test_modes)
     win.show()
 
     code = app.exec_()

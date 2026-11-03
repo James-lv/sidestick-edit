@@ -1,0 +1,29 @@
+# 测试模式启动参数。软件启动时会自动填充测试页按钮右侧输入框。
+# amplitude：幅值；frequency：频率；duration：持续时间（秒）。
+# 扫频模式使用 frequency_start / frequency_end（Hz）。
+test_modes:
+  1:
+    amplitude: 100.0
+    frequency: 10.0
+    duration: 10
+  2:
+    amplitude: 0.5
+    frequency: 0.5
+    duration: 10
+  3:
+    amplitude: 0.5
+    frequency: 0.0
+    duration: 10
+  4:
+    amplitude: 0.5
+    frequency_start: 0.5
+    frequency_end: 5.0
+    duration: 10
+  5:
+    amplitude: 0.5
+    frequency: 1.0
+    duration: 10
+  6:
+    amplitude: 0.5
+    frequency: 0.0
+    duration: 10

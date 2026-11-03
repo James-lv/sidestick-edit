@@ -14,7 +14,7 @@
 import argparse
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -80,6 +80,7 @@ class ConfigBundle:
     """一次加载得到的全部配置。"""
     protocol: dict
     config_dir: Path
+    test_modes: dict = field(default_factory=dict)
 
     def channels(self) -> List[dict]:
         """通道标识列表（每项含 index/name/axis）。"""
@@ -98,7 +99,42 @@ def load_all(config_dir: Optional[Path] = None) -> ConfigBundle:
     protocol = _load_yaml(cfg_dir / "protocol.yaml")
     _coerce_network(protocol)
     _validate_channel_ids(protocol)
-    return ConfigBundle(protocol=protocol, config_dir=cfg_dir)
+    test_modes_path = cfg_dir / "test_modes.yaml"
+    test_modes = load_test_modes(test_modes_path) if test_modes_path.exists() else {}
+    return ConfigBundle(protocol=protocol, config_dir=cfg_dir,
+                        test_modes=test_modes)
+
+
+def load_test_modes(path: Path) -> Dict[int, dict]:
+    """加载并校验测试模式按钮的启动参数。"""
+    raw = _load_yaml(Path(path))
+    modes = raw.get("test_modes")
+    if not isinstance(modes, dict):
+        raise ConfigError("test_modes.yaml 缺少 test_modes 映射")
+
+    result = {}
+    for mode in range(1, 7):
+        item = modes.get(mode, modes.get(str(mode)))
+        if not isinstance(item, dict):
+            raise ConfigError("test_modes.%d 必须是映射" % mode)
+        required = ["amplitude", "duration"]
+        required += ["frequency_start", "frequency_end"] if mode == 4 else ["frequency"]
+        missing = [key for key in required if key not in item]
+        if missing:
+            raise ConfigError("test_modes.%d 缺少键: %s" % (mode, missing))
+        normalized = {}
+        for key in required:
+            try:
+                normalized[key] = float(item[key])
+            except (TypeError, ValueError):
+                raise ConfigError("test_modes.%d.%s 不是合法数值: %r"
+                                  % (mode, key, item[key]))
+        if normalized["duration"] < 0:
+            raise ConfigError("test_modes.%d.duration 不能为负数" % mode)
+        if mode == 4 and normalized["frequency_start"] > normalized["frequency_end"]:
+            raise ConfigError("test_modes.4.frequency_start 不能大于 frequency_end")
+        result[mode] = normalized
+    return result
 
 
 # ============================================================
