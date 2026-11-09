@@ -110,7 +110,7 @@ pyqt_refactor/
 | `params_ack` | `(channel: int, ok: bool)` | 参数下发得到回执 / 超时 |
 | `state_changed` | `(channel: int, field: str, value, dirty: bool)` | 某通道某字段在编辑态被改写（回灌 UI）；`dirty=True` 表示与已下发态不一致 → 界面显示**蓝字** |
 | `points_changed` | `(channel: int, position[18], force[18], dirty: bool)` | 18 点表数据回灌（**编辑态**）；`dirty` 任一点与已下发态不同 → 表格蓝字；标定曲线按其即刷（决策 #24） |
-| `control_mode_changed` | `(channel: int, mode: int, dirty: bool)` | 控制模式切换回灌；dirty 恒为 False（模式属于运行时标志，不写入预设） |
+| `control_mode_changed` | `(channel: int, mode: int, dirty: bool)` | 控制模式下发后的回灌；dirty 恒为 False（模式属于运行时标志，不写入预设） |
 | `preset_list_changed` | `()` | presets.yaml 被增删改（UI 刷新预设列表） |
 | `log_message` | `(level: str, text: str)` | 任意日志 |
 | `error_occurred` | `(where: str, message: str)` | 异常（含 UDP 发送失败等） |
@@ -122,9 +122,9 @@ pyqt_refactor/
 | `send_parameters` | `(channel: int)` | **内层「下载」按钮**：编辑态提交为已下发态 → 直接发 182B（无条件，无差异也发）。若当前编辑的是**用户新建预设** → 同时把该通道完整数据（18 点+参数）回写 presets.yaml（出厂预设不回写，决策 17） |
 | `set_packet_field` | `(channel: int, field: str, value)` | 编辑态提交（lineedit 输入完成 / 表格单元格改动 / 快捷按钮），**不下发**；回灌 `state_changed(dirty=…)` |
 | `zero` | `(channel: int)` | 置校零脉冲：置位→发→清两帧（防控制器 latch）；点击即发 |
-| `set_control_mode` | `(channel: int, mode: int)` | **控制模式**：0=OFF 1=抖杆 2=脉冲 3=倍脉冲 4=扫频 5=正弦 6=阶跃，点击即发，回灌 `control_mode_changed(ch, mode, dirty)`；开环测试页将当前有完整预设数据的通道传入 |
+| `set_control_mode` | `(channel: int, mode: int)` | **控制模式**：0=OFF 1=抖杆 2=脉冲 3=倍脉冲 4=扫频 5=正弦 6=阶跃；开环测试页先选择模式，再点击「使能」下发，取消使能下发 0；回灌 `control_mode_changed(ch, mode, dirty)` |
 | `load_preset` | `(channel: int, preset_id: str)` | 加载预设到**编辑态**（不发，标蓝），并记住当前编辑的预设 id（供内层「下载」判断是否回写）；内层「标准919数据·设置」按钮即此动作（`preset="state_1"`，状态1） |
-| `download_preset` | `(preset_id: str)` | **外层「下载」按钮**：加载预设的俯仰、滚转、偏航数据 → 提交 + 三通道下发 + 回灌（黑色）；**不写预设文件**（决策 17） |
+| `download_preset` | `(preset_id: str)` | **外层「下载」按钮**：退出当前测试模式，加载预设的俯仰、滚转、偏航数据 → 提交 + 三通道下发 + 回灌（黑色）；**不写预设文件**（决策 17） |
 | `create_preset` | `()` | **新建**：免弹窗复制 模式6 综合力感 数据生成用户新预设（id 自动 `user_+时间戳`，决策 17/22）→ 原子重写 presets.yaml → 广播 `preset_list_changed` |
 | `update_preset` | `(preset_id: str, data: dict)` | 修改预设条目 → 同上 |
 | `delete_preset` | `(preset_id: str)` | 删除**用户新建**预设（UI 先弹确认；`builtin` 出厂预设后端拒绝，决策 17）→ 原子重写 presets.yaml → 广播 `preset_list_changed` |

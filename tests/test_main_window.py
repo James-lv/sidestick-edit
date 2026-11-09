@@ -63,6 +63,25 @@ class TestMainWindow(unittest.TestCase):
         self.assertEqual(self.win._link_text.text(), "网络连接")
         self.assertFalse(hasattr(self.win, "_host_btn"))
 
+    def test_help_menu_is_after_view_menu(self):
+        actions = self.win.menuBar().actions()
+        self.assertEqual([action.text() for action in actions[-3:]],
+                         ["设置(&S)", "查看(&V)", "帮助(&H)"])
+
+    def test_help_menu_has_preset_and_open_loop_documents(self):
+        help_actions = self.win._help_menu.actions()
+        self.assertEqual([action.text() for action in help_actions],
+                         ["预设说明", "开环测试说明"])
+
+    def test_help_action_opens_separate_document_window(self):
+        self.win._help_menu.actions()[0].trigger()
+        QApplication.instance().processEvents()
+
+        dialog = self.win._help_dialogs["preset_help.md"]
+        self.assertTrue(dialog.isVisible())
+        self.assertEqual(dialog.windowTitle(), "预设说明")
+        self.assertEqual(dialog._browser.toPlainText(), "")
+
     # ------------------------------------------------------------------
     # 蓝条交互
     # ------------------------------------------------------------------
@@ -222,6 +241,9 @@ class TestMainWindow(unittest.TestCase):
 
         self.win._mode_box._buttons[2].click()
         QApplication.instance().processEvents()
+        self.assertEqual(self.backend.get_control_mode(roll), 0)
+        self.win._test_enable_btn.click()
+        QApplication.instance().processEvents()
         self.assertEqual(self.backend.get_control_mode(roll), 2)
         self.assertEqual(self.backend.get_control_mode(self.win._pitch_index), 0)
 
@@ -248,6 +270,7 @@ class TestMainWindow(unittest.TestCase):
         self.assertEqual(list(actual_curve[1]), expected_curve[1])
 
         self.win._mode_box._buttons[2].click()
+        self.win._test_enable_btn.click()
         self.assertEqual(self.backend.get_control_mode(yaw), 2)
         values = packets.unpack_packet(
             packets.build_packet_spec(self.bundle.protocol, "send"),
@@ -263,15 +286,52 @@ class TestMainWindow(unittest.TestCase):
     def test_test_page_bottom_gray_margin_is_compact(self):
         self.assertEqual(self.win._test_page.layout().contentsMargins().bottom(), 10)
 
-    def test_test_channel_buttons_are_aligned_to_bottom_of_mode_panel(self):
+    def test_test_channel_buttons_are_in_test_page_header(self):
         self.win._stack.setCurrentIndex(MainWindow.PAGE_TEST)
         QApplication.instance().processEvents()
 
-        panel = self.win._test_channel_row.parentWidget()
-        row_bottom = (
-            self.win._test_channel_row.y() + self.win._test_channel_row.height()
+        self.assertTrue(self.win._test_channel_row.isVisible())
+        self.assertFalse(self.win._preset_tab_btn.isVisible())
+        self.assertFalse(self.win._test_tab_btn.isVisible())
+        self.assertIs(
+            self.win._test_channel_row.parentWidget(),
+            self.win._page_tabs,
         )
-        self.assertGreaterEqual(row_bottom, panel.height() - 16)
+
+    def test_test_page_has_back_button_in_mode_panel(self):
+        self.win._stack.setCurrentIndex(MainWindow.PAGE_TEST)
+        self.assertEqual(
+            self.win._test_back_btn.parentWidget().objectName(),
+            "TestActionRowFrame",
+        )
+        self.assertIs(
+            self.win._test_back_btn.parentWidget().parentWidget(),
+            self.win._mode_box.parentWidget(),
+        )
+        self.assertEqual(
+            self.win._test_back_btn.parentWidget().layout().contentsMargins().left(),
+            10,
+        )
+        self.win._test_back_btn.click()
+        QApplication.instance().processEvents()
+
+        self.assertEqual(self.win._stack.currentIndex(), MainWindow.PAGE_PRESETS)
+
+    def test_test_back_disables_active_mode_on_selected_channel(self):
+        self.win._stack.setCurrentIndex(MainWindow.PAGE_TEST)
+        button = self.win._mode_box._buttons[1]
+        button.click()
+        self.win._test_enable_btn.click()
+        self.assertEqual(
+            self.backend.get_control_mode(self.win._test_channel), 1)
+
+        self.win._test_back_btn.click()
+
+        self.assertEqual(self.win._stack.currentIndex(), MainWindow.PAGE_PRESETS)
+        self.assertEqual(
+            self.backend.get_control_mode(self.win._test_channel), 0)
+        self.assertFalse(self.win._test_enable_btn.isChecked())
+        self.assertEqual(self.win._mode_box.get_mode(), 0)
 
     # ------------------------------------------------------------------
     # 开环测试模式
@@ -281,22 +341,52 @@ class TestMainWindow(unittest.TestCase):
         self.assertEqual(box.get_mode(), 0)
         self.assertTrue(box.isEnabled())
 
+        n = len(self.backend._tx_log)
         box._buttons[1].click()
         QApplication.instance().processEvents()
-        self.assertEqual(self.backend.get_control_mode(self.win._pitch_index), 1)
+        self.assertEqual(len(self.backend._tx_log), n)
+        self.assertEqual(self.backend.get_control_mode(self.win._pitch_index), 0)
         self.assertEqual(box.get_mode(), 1)
 
-        # 直接切到另一模式，不发 0
+        self.win._test_enable_btn.click()
+        QApplication.instance().processEvents()
+        self.assertTrue(self.win._test_enable_btn.isChecked())
+        self.assertEqual(self.win._test_enable_btn.text(), "暂停")
+        self.assertEqual(self.backend.get_control_mode(self.win._pitch_index), 1)
+
         box._buttons[5].click()
         QApplication.instance().processEvents()
         self.assertEqual(self.backend.get_control_mode(self.win._pitch_index), 5)
         self.assertEqual(box.get_mode(), 5)
 
-        # 再次点击同一按钮 → OFF
-        box._buttons[5].click()
+        self.win._test_enable_btn.click()
         QApplication.instance().processEvents()
+        self.assertFalse(self.win._test_enable_btn.isChecked())
+        self.assertEqual(self.win._test_enable_btn.text(), "使能")
         self.assertEqual(self.backend.get_control_mode(self.win._pitch_index), 0)
+
+    def test_mode_button_toggles_selection_and_disables_active_mode(self):
+        box = self.win._mode_box
+        button = box._buttons[1]
+
+        button.click()
+        self.assertTrue(button.isChecked())
+        self.assertEqual(box.get_mode(), 1)
+
+        button.click()
+        self.assertFalse(button.isChecked())
         self.assertEqual(box.get_mode(), 0)
+
+        button.click()
+        self.win._test_enable_btn.click()
+        self.assertEqual(self.backend.get_control_mode(self.win._pitch_index), 1)
+
+        button.click()
+        self.assertFalse(button.isChecked())
+        self.assertEqual(box.get_mode(), 0)
+        self.assertFalse(self.win._test_enable_btn.isChecked())
+        self.assertEqual(self.win._test_enable_btn.text(), "使能")
+        self.assertEqual(self.backend.get_control_mode(self.win._pitch_index), 0)
 
     def test_mode_box_is_always_available_in_test_page(self):
         box = self.win._mode_box
@@ -307,6 +397,9 @@ class TestMainWindow(unittest.TestCase):
 
         n = len(self.backend._tx_log)
         box._buttons[1].click()
+        QApplication.instance().processEvents()
+        self.assertEqual(len(self.backend._tx_log), n)
+        self.win._test_enable_btn.click()
         QApplication.instance().processEvents()
         self.assertEqual(len(self.backend._tx_log), n + 1)
         self.assertEqual(self.backend.get_control_mode(self.win._pitch_index), 1)

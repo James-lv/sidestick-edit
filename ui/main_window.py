@@ -28,7 +28,8 @@ from pathlib import Path
 from PyQt5.QtCore import Qt, pyqtSlot
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import (QAction, QButtonGroup, QFrame, QHBoxLayout,
-                             QLabel, QMainWindow, QPushButton, QStackedWidget,
+                             QLabel, QDialog, QMainWindow, QPushButton,
+                             QStackedWidget, QMessageBox, QTextBrowser,
                              QVBoxLayout, QWidget)
 
 from ui.channel_page import ChannelPage
@@ -37,7 +38,22 @@ from ui.preset_manager import PresetManagerPage
 from ui.widgets.control_mode_box import ControlModeBox
 
 _ASSETS = Path(__file__).resolve().parent.parent / "assets"
+_DOCS = Path(__file__).resolve().parent.parent / "docs"
 _CHANNEL_AXES = ((1, "俯仰"), (2, "滚转"), (3, "偏航"))
+
+
+class HelpDialog(QDialog):
+    def __init__(self, title, content, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.resize(620, 420)
+
+        layout = QVBoxLayout(self)
+        browser = QTextBrowser(self)
+        browser.setOpenExternalLinks(True)
+        browser.setMarkdown(content)
+        layout.addWidget(browser)
+        self._browser = browser
 
 
 class MainWindow(QMainWindow):
@@ -129,6 +145,7 @@ class MainWindow(QMainWindow):
             "}"
         )
         layout = QHBoxLayout(container)
+        self._page_tabs_layout = layout
         layout.setContentsMargins(10, 2, 10, 2)
         layout.setSpacing(0)
 
@@ -143,6 +160,13 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(self._preset_tab_btn)
         layout.addWidget(self._test_tab_btn)
+        self._test_channel_row = QWidget(container)
+        self._test_channel_row.setObjectName("TestChannelRow")
+        self._test_channel_row.hide()
+        channel_button_layout = QHBoxLayout(self._test_channel_row)
+        channel_button_layout.setContentsMargins(8, 0, 0, 0)
+        channel_button_layout.setSpacing(6)
+        layout.addWidget(self._test_channel_row)
         layout.addStretch(1)
 
         return container
@@ -180,6 +204,36 @@ class MainWindow(QMainWindow):
                 )
                 submenu.addAction(action)
                 self._channel_visibility_actions[(section, axis)] = action
+
+        self._help_menu = menubar.addMenu("帮助(&H)")
+        self._help_dialogs = {}
+        preset_help = self._help_menu.addAction("预设说明")
+        preset_help.triggered.connect(
+            lambda: self._open_help_document("preset_help.md"))
+        test_help = self._help_menu.addAction("开环测试说明")
+        test_help.triggered.connect(
+            lambda: self._open_help_document("open_loop_test_help.md"))
+
+    def _open_help_document(self, name):
+        path = _DOCS / name
+        if not path.exists():
+            QMessageBox.warning(self, "帮助", "帮助文档不存在：%s" % path)
+            return
+        try:
+            content = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            QMessageBox.warning(self, "帮助", "无法读取帮助文档：%s" % exc)
+            return
+        title = "预设说明" if name == "preset_help.md" else "开环测试说明"
+        dialog = self._help_dialogs.get(name)
+        if dialog is None:
+            dialog = HelpDialog(title, content, self)
+            self._help_dialogs[name] = dialog
+        else:
+            dialog._browser.setMarkdown(content)
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
 
     def _build_test_page(self, parent=None):
         page = QWidget(parent)
@@ -271,15 +325,73 @@ class MainWindow(QMainWindow):
 
         self._test_channel_group.buttonClicked[int].connect(
             self._on_test_channel_selected)
-        self._test_channel_row = QWidget(mode_container)
-        channel_button_row = QHBoxLayout(self._test_channel_row)
-        channel_button_row.setContentsMargins(8, 8, 8, 0)
-        channel_button_row.setSpacing(6)
+        channel_button_row = self._test_channel_row.layout()
         for button in self._test_channel_buttons.values():
             channel_button_row.addWidget(button)
         mode_layout.addStretch(1)
-        mode_layout.addWidget(self._test_channel_row)
         self._test_channel_buttons["俯仰"].setChecked(True)
+
+        bottom_bar = QWidget(mode_container)
+        bottom_bar.setObjectName("TestActionRowFrame")
+        bottom_bar.setStyleSheet(
+            "QWidget#TestActionRowFrame {"
+            "  background-color: #ffffff;"
+            "  border: 1px solid #d8d8d8;"
+            "  border-radius: 6px;"
+            "}"
+            "QPushButton {"
+            "  min-height: 30px;"
+            "  min-width: 80px;"
+            "}"
+        )
+        bottom_layout = QHBoxLayout(bottom_bar)
+        bottom_layout.setContentsMargins(10, 8, 10, 8)
+        bottom_layout.setSpacing(12)
+        self._test_back_btn = QPushButton("返回", bottom_bar)
+        self._test_back_btn.setMinimumWidth(80)
+        self._test_back_btn.setMinimumHeight(30)
+        self._test_back_btn.setObjectName("test_back")
+        self._test_back_btn.setStyleSheet(
+            "QPushButton#test_back {"
+            "  background-color: #2f82f6;"
+            "  color: white;"
+            "  border: 1px solid #2a74d8;"
+            "  border-radius: 4px;"
+            "  font-weight: 600;"
+            "}"
+            "QPushButton#test_back:hover {"
+            "  background-color: #256fe0;"
+            "}"
+            "QPushButton#test_back:pressed {"
+            "  background-color: #1e5fc4;"
+            "}"
+        )
+        self._test_back_btn.clicked.connect(self._on_test_back_clicked)
+        bottom_layout.addStretch(1)
+        self._test_enable_btn = QPushButton("使能", bottom_bar)
+        self._test_enable_btn.setCheckable(True)
+        self._test_enable_btn.setMinimumWidth(50)
+        self._test_enable_btn.setMinimumHeight(30)
+        self._test_enable_btn.setObjectName("test_enable")
+        self._test_enable_btn.setStyleSheet(
+            "QPushButton#test_enable {"
+            "  background-color: #f2f8ff;"
+            "  color: #1f1f1f;"
+            "  border: 1px solid #7aa9de;"
+            "  border-radius: 4px;"
+            "  font-weight: 600;"
+            "}"
+            "QPushButton#test_enable:checked {"
+            "  background-color: #4caf50;"
+            "  color: white;"
+            "  border: 1px solid #388e3c;"
+            "}"
+        )
+        self._test_enable_btn.clicked.connect(self._on_test_enable_clicked)
+        bottom_layout.addWidget(self._test_enable_btn)
+        bottom_layout.addSpacing(200)
+        bottom_layout.addWidget(self._test_back_btn)
+        mode_layout.addWidget(bottom_bar)
 
         plot_panel = QWidget(content)
         self._test_plot_panel = plot_panel
@@ -397,6 +509,9 @@ class MainWindow(QMainWindow):
         self._page_tabs.setVisible(visible)
         self._preset_tab_btn.setChecked(index == self.PAGE_PRESETS)
         self._test_tab_btn.setChecked(index == self.PAGE_TEST)
+        self._preset_tab_btn.setVisible(index == self.PAGE_PRESETS)
+        self._test_tab_btn.setVisible(index == self.PAGE_PRESETS)
+        self._test_channel_row.setVisible(index == self.PAGE_TEST)
 
     @pyqtSlot(int)
     def _on_page_changed(self, index):
@@ -435,9 +550,27 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot(int)
     def _on_mode_selected(self, mode):
-        """灰框点击：下发到当前选中的测试通道。"""
-        if self._test_channel is not None:
+        """灰框点击：选择模式；仅使能后才下发。"""
+        if self._test_enable_btn.isChecked() and self._test_channel is not None:
             self._backend.set_control_mode(self._test_channel, mode)
+
+    def _on_test_enable_clicked(self, enabled):
+        if self._test_channel is None or self._mode_box.get_mode() == 0:
+            self._set_test_enabled(False)
+            return
+        mode = self._mode_box.get_mode() if enabled else 0
+        self._backend.set_control_mode(self._test_channel, mode)
+
+    def _set_test_enabled(self, enabled):
+        self._test_enable_btn.setChecked(enabled)
+        self._test_enable_btn.setText("暂停" if enabled else "使能")
+
+    def _on_test_back_clicked(self):
+        if (self._test_channel is not None
+                and self._backend.get_control_mode(self._test_channel) != 0):
+            self._backend.set_control_mode(self._test_channel, 0)
+        self._set_test_enabled(False)
+        self._stack.setCurrentIndex(self.PAGE_PRESETS)
 
     def _on_test_channel_selected(self, axis):
         action = self._channel_visibility_actions.get(("test", axis))
@@ -448,10 +581,12 @@ class MainWindow(QMainWindow):
         self._test_channel = channel["index"] if available else None
         self._mode_box.setEnabled(available)
         if available:
-            self._mode_box.set_mode(
-                self._backend.get_control_mode(channel["index"]))
+            mode = self._backend.get_control_mode(channel["index"])
+            self._mode_box.set_mode(mode)
+            self._set_test_enabled(mode != 0)
         else:
             self._mode_box.set_mode(0)
+            self._set_test_enabled(False)
         self._test_plot_pages.setCurrentIndex(
             self._test_plot_page_indexes[channel["index"]])
 
@@ -486,6 +621,7 @@ class MainWindow(QMainWindow):
             if next_axis is None:
                 self._test_channel = None
                 self._mode_box.setEnabled(False)
+                self._set_test_enabled(False)
                 self._test_channel_row.hide()
                 self._test_plot_panel.hide()
             else:
@@ -502,6 +638,7 @@ class MainWindow(QMainWindow):
     def _on_control_mode_changed(self, ch, mode, dirty):
         if ch == self._test_channel:
             self._mode_box.set_mode(mode)
+            self._set_test_enabled(mode != 0)
 
 
 def _load_pixmap(name):

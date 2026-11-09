@@ -3,9 +3,7 @@
 
 交互规则（用户 2026-09-09 确认）：
     - 六个按钮对应控制模式 1..6：抖杆/脉冲/倍脉冲/扫频/正弦/阶跃。
-    - 点击某按钮：
-        • 若当前模式 == 该按钮模式 → 切到 0（OFF），按钮全部抬起。
-        • 若当前模式 != 该按钮模式 → 直接切到该模式，原模式按钮抬起，不发 0。
+    - 点击某按钮：选择该测试模式，不直接下发；发送由调用方的「使能」控制。
     - 本组件只负责 UI 状态与 mode_selected 信号；调用方负责把模式值下发给后端
       （backend.set_control_mode(channel, mode)），并回灌当前通道的实时模式。
 
@@ -173,7 +171,7 @@ class ControlModeBox(QGroupBox):
                 "  border: 1px solid #5d9ae9;"
                 "}"
             )
-            btn.clicked.connect(lambda checked, m=mode: self._on_clicked(m))
+            btn.clicked.connect(lambda checked, m=mode: self._on_clicked(m, checked))
             h.addWidget(btn, 0, Qt.AlignTop)
             h.addSpacing(6)
 
@@ -316,10 +314,9 @@ class ControlModeBox(QGroupBox):
     # ------------------------------------------------------------
     # 状态管理
     # ------------------------------------------------------------
-    def _on_clicked(self, mode: int):
-        """点击按钮：同模式再次点击 → 0；不同模式 → 直接切换。"""
-        target_mode = 0 if self._current_mode == mode else mode
-        self.set_mode(target_mode)
+    def _on_clicked(self, mode: int, checked: bool):
+        """切换模式选中态，由调用方决定是否立即下发。"""
+        self.set_mode(mode if checked else 0)
         self.mode_selected.emit(self._current_mode)
 
     def _set_sweep_details_visible(self, visible: bool):

@@ -172,6 +172,16 @@ class TestPresets(BackendTestBase):
         for ch in (0, 1, 2):
             self.assertFalse(be._is_dirty(ch))
 
+    def test_parameter_download_exits_test_mode(self):
+        be = self._make_backend()
+        be.set_control_mode(0, 2)
+        be.download_preset("state_2")
+
+        self.assertEqual(be.get_control_mode(0), 0)
+        values = packets.unpack_packet(
+            be._send_spec, be._tx_log[-3])
+        self.assertEqual(values["control_mode"], 0)
+
     def test_create_and_delete_user_preset(self):
         be = self._make_backend()
         n = len(be.get_presets())

@@ -9,7 +9,8 @@
 交互规则：
     - 内层「下载」send_parameters(ch)：提交 + 直接发 182B（无条件，无差异也发）；
       编辑中的是用户新建预设 → 该通道数据回写 presets.yaml（出厂不回写）。
-    - 外层「下载」download_preset(id)：加载全部通道 + 发送，不写文件（决策 17）。
+    - 内层/外层参数下载：发送前退出当前测试模式，避免设备继续按测试模式运行；
+      外层 download_preset(id) 加载全部通道 + 发送，不写文件（决策 17）。
     - 校零 zero(ch)：置位→发→延时清 两帧脉冲（决策 5.3-2）。
     - 发送：无条件直接 sendto（UDP 无连接，对端不在顶多丢包，绝不阻塞/缓存）。
     - 控制模式 set_control_mode(ch, mode)：0=OFF..6=阶跃，随参数包下发。
@@ -323,8 +324,10 @@ class BackendService(QObject):
             self._error("send_parameters", "通道不存在: %r" % ch)
             return
         self._sent[ch] = copy.deepcopy(self._editing[ch])
+        self._flags[ch]["control_mode"] = 0
         ok = self._build_and_send(ch)
         self.params_ack.emit(ch, ok)
+        self.control_mode_changed.emit(ch, 0, False)
         self._push_all(ch)
         self._maybe_writeback(ch)
         self._log("通道 %d 参数已下发" % ch)
@@ -428,8 +431,10 @@ class BackendService(QObject):
         for ch in sorted(preset["channels"]):
             self._editing[ch] = copy.deepcopy(preset["channels"][ch])
             self._sent[ch] = copy.deepcopy(self._editing[ch])
+            self._flags[ch]["control_mode"] = 0
             ok = self._build_and_send(ch)
             self.params_ack.emit(ch, ok)
+            self.control_mode_changed.emit(ch, 0, False)
             self._push_all(ch)
         self._log("预设 %r 已下发（俯仰/滚转/偏航三通道）" % preset_id)
 
