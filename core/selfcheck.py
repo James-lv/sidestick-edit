@@ -6,8 +6,8 @@
 
 检查项：
     1. 配置加载（protocol.yaml：网络/通道标识/固定值）
-    2. send 参数包逐字段偏移表 + 断言 182B；recv 周期帧单通道 8B × 3 = 24B
-    3. 182B 组包/解包往返一致（用 模式1 预设的通道数据实组包）
+    2. send 参数包逐字段偏移表 + 断言 204B；recv 周期帧单通道 8B × 3 = 24B
+    3. 204B 组包/解包往返一致（用 模式1 预设的通道数据实组包）
     4. presets.yaml 解析/渲染往返一致
     5. 报错路径：配置文件缺失/损坏 → 明确报错（恢复由打包启动层负责，决策 16）
 """
@@ -64,10 +64,10 @@ def main() -> int:
           and bundle.protocol["network"]["target_port"] == 9300)
 
     # ---------- 2. send 偏移表 ----------
-    print("\n[2] send 参数包字段偏移表（期望 182B）")
+    print("\n[2] send 参数包字段偏移表（期望 204B）")
     spec2 = packets.build_packet_spec(bundle.protocol, "send")
     print_offset_table(spec2)
-    check("send = 182 B", spec2.size == 182, "实际 %d" % spec2.size)
+    check("send = 204 B", spec2.size == 204, "实际 %d" % spec2.size)
 
     n_channels = len(bundle.channels())
     print("\n[3] recv 周期帧（单通道 8B × %d）" % n_channels)
@@ -102,7 +102,7 @@ def main() -> int:
                                        ch_id["axis"],
                                        flags={"zero_calib": False, "control_mode": 0})
     packet = packets.pack_packet(spec2, values)
-    check("组包字节数", len(packet) == 182, "实际 %d" % len(packet))
+    check("组包字节数", len(packet) == 204, "实际 %d" % len(packet))
     decoded = packets.unpack_packet(spec2, packet)
 
     def _same(a, b):
@@ -154,7 +154,7 @@ def main() -> int:
     if _failures:
         print("自检未通过：%d 项 → %s" % (len(_failures), "; ".join(_failures)))
         return 1
-    print("自检全部通过（send=182B / recv=24B / 往返一致 / 预设）")
+    print("自检全部通过（send=204B / recv=24B / 往返一致 / 预设）")
     return 0
 
 

@@ -35,7 +35,7 @@ class TestMainWindow(unittest.TestCase):
         self.bundle = config_loader.load_all()
         self.backend = BackendService(self.bundle, self.presets_path, udp_enabled=False)
         self.backend.start()
-        self.win = MainWindow(self.backend)
+        self.win = MainWindow(self.backend, test_modes=self.bundle.test_modes)
         self.win.show()
         QApplication.instance().processEvents()
 
@@ -94,7 +94,9 @@ class TestMainWindow(unittest.TestCase):
         for mode in self.win._mode_box._buttons:
             self.assertIsNotNone(self.win._mode_box._amp_inputs[mode])
             self.assertIsNotNone(self.win._mode_box._freq_inputs[mode])
-            self.assertEqual(self.win._mode_box._time_inputs[mode].text(), "")
+            self.assertEqual(
+                float(self.win._mode_box._time_inputs[mode].text()),
+                self.bundle.test_modes[mode]["duration"])
         self.assertTrue(self.win._mode_box.isEnabled())
 
         self.backend.set_host_mode(True)
@@ -103,17 +105,18 @@ class TestMainWindow(unittest.TestCase):
 
     def test_mode_buttons_show_absolute_amplitude_frequency_and_tooltips(self):
         box = self.win._mode_box
-        expected = {
-            1: ("100.0", "10.0"),
-            2: ("0.5", "0.5"),
-            3: ("0.5", "0"),
-            4: ("0.5", "0.5–5.0"),
-            5: ("0.5", "1.0"),
-            6: ("0.5", "0"),
-        }
-        for mode, (amplitude, frequency) in expected.items():
-            self.assertEqual(box._amp_inputs[mode].text(), amplitude)
-            self.assertEqual(box._freq_inputs[mode].text(), frequency)
+        for mode, parameters in self.bundle.test_modes.items():
+            self.assertEqual(
+                float(box._amp_inputs[mode].text()), parameters["amplitude"])
+            if mode != 4:
+                self.assertEqual(
+                    float(box._freq_inputs[mode].text()),
+                    parameters["frequency"])
+            else:
+                self.assertEqual(
+                    box._freq_inputs[mode].text(),
+                    "%g–%g" % (parameters["frequency_start"],
+                               parameters["frequency_end"]))
             self.assertTrue(box._buttons[mode].toolTip())
 
         self.assertIn("无固定重复频率", box._buttons[3].toolTip())
@@ -387,6 +390,37 @@ class TestMainWindow(unittest.TestCase):
         self.assertFalse(self.win._test_enable_btn.isChecked())
         self.assertEqual(self.win._test_enable_btn.text(), "使能")
         self.assertEqual(self.backend.get_control_mode(self.win._pitch_index), 0)
+
+    def test_selected_mode_parameters_are_sent_to_controller(self):
+        box = self.win._mode_box
+        box._buttons[5].click()
+        box._amp_inputs[5].setText("0.75")
+        box._freq_inputs[5].setText("1.25")
+        box._time_inputs[5].setText("8.5")
+        self.win._test_enable_btn.click()
+
+        decoded = packets.unpack_packet(
+            self.backend._send_spec, self.backend._tx_log[-1])
+        self.assertEqual(decoded["control_mode"], 5)
+        self.assertEqual(decoded["test_duration"], 8.5)
+        self.assertEqual(decoded["amplitude"], 0.75)
+        self.assertEqual(decoded["sine_frequency"], 1.25)
+        self.assertEqual(decoded["sweep_start_frequency"], 0.0)
+        self.assertEqual(decoded["sweep_end_frequency"], 0.0)
+
+        box._amp_inputs[4].setText("0.6")
+        box._time_inputs[4].setText("9")
+        box._sweep_start_inputs[4].setText("0.4")
+        box._sweep_end_inputs[4].setText("4.5")
+        box._buttons[4].click()
+        decoded = packets.unpack_packet(
+            self.backend._send_spec, self.backend._tx_log[-1])
+        self.assertEqual(decoded["control_mode"], 4)
+        self.assertEqual(decoded["test_duration"], 9.0)
+        self.assertAlmostEqual(decoded["amplitude"], 0.6, places=6)
+        self.assertEqual(decoded["sine_frequency"], 0.0)
+        self.assertAlmostEqual(decoded["sweep_start_frequency"], 0.4, places=6)
+        self.assertEqual(decoded["sweep_end_frequency"], 4.5)
 
     def test_mode_box_is_always_available_in_test_page(self):
         box = self.win._mode_box

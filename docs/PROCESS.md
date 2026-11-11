@@ -28,7 +28,7 @@
 ### 关键数值（联调速查）
 
 - 端口：本机 9200（**单 socket 收发共用**）/ 控制器收包 9300；看门狗 **5s** 无数据判断链
-- 182B 包（新顺序/字段名，C++ 需同步）：`host_mode(bool)+axis(int8)+zero_calib(bool)+control_mode(int8)` 4B → `pos_pts[18]+force_pts[18]`(float×36) 144B → `scale_factor(int16)` 2B → `friction(float)+breakout_force(int32)+spring_force(int32)+damping_num(int32)+damping_den(int32)+negative_stop(float)+positive_stop(float)+force_offset(int32)` 32B（host 为新增主机标志位）
+- 204B 包（新顺序/字段名，C++ 需同步）：`host_mode(bool)+axis(int8)+zero_calib(bool)+control_mode(int8)` 4B → `pos_pts[18]+force_pts[18]`(float×36) 144B → `scale_factor(int32)` 4B → 工艺参数 32B → 开环测试参数 `test_duration+amplitude+sine_frequency+sweep_start_frequency+sweep_end_frequency`(float×5) 20B
 - 限位/18 点/参数全部直接存**报文原值**，无换算（决策 18；参考系数 deg→脉冲 ×108.695652 仅手工换算时用）
 - axis 字段：俯仰=1 / 滚转=2 / 脚蹬=3（protocol.yaml channel_ids 索引 0/1/2）
 - force_offset 初值：240 / 290 / 35（俯仰/滚转/脚蹬），**有死区时归零**
@@ -90,7 +90,7 @@ PYTHONIOENCODING=utf-8 python -m unittest discover -s tests -t .
    - shark/control 改为每通道独立状态（原版三通道共享一个实例）；
    - 曲线方向推导无状态化（原版 `m_lastPosition/m_direction` 跨调用，结果不可复现）。
 10. **内层参数蓝字脏标记 + 「下载」显式下发**（2026-09-08 新增）：
-    - 内层可编辑数值框（参数设置：比例因子 / 弹簧力 / 阻尼分子 / 阻尼分母 / 摩擦力 / 负限位 / 启动力 / 正限位 / 力偏置）：修改后文字变**蓝色** = 已改未下发；点内层「**下载**」按钮 → 提交 + 下发 182B → 恢复**黑色** = 已下发。操作员始终知道下发的是什么。
+    - 内层可编辑数值框（参数设置：比例因子 / 弹簧力 / 阻尼分子 / 阻尼分母 / 摩擦力 / 负限位 / 启动力 / 正限位 / 力偏置）：修改后文字变**蓝色** = 已改未下发；点内层「**下载**」按钮 → 提交 + 下发 204B → 恢复**黑色** = 已下发。操作员始终知道下发的是什么。
     - 依据：原 C++ 本来就是"改输入框不发、点按钮才发"（mainwindow.cpp 所有按钮 → `setparm` → `send_udp`），本决策只是给该行为加视觉标记。
     - **双状态模型**：后端每通道维护 `editing_params`（界面显示）与 `sent_params`（已下发，**组包只从它取数**）；`dirty = 两者不等`，由 `state_changed(…, dirty)` 回灌驱动颜色。
     - 快捷按钮（左右1deg/0.5deg）只写字段值并标蓝，**不再立即发送**（原版立即发，有意变更）。

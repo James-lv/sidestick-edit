@@ -28,9 +28,9 @@ channel_ids:
 # 字段：{name, type, count, unit, zh}；zh 为空 = 内部字段（显示精度由 UI 统一规则决定，不在此配置）
 # ============================================================
 structs:
-  UDP_UI_Send_To_Controller_Parameter:      # 参数包 182B
+  UDP_UI_Send_To_Controller_Parameter:      # 参数包 204B
     # 字段顺序按功能分组：① 控制位 → ② 18点曲线 → ③ 比例因子 → ④ 工艺参数
-    # C++ 控制器侧需同步重排字段顺序，包大小仍 182B
+    # C++ 控制器侧需同步字段顺序与新增开环测试参数，包大小 204B
     fields:
       - {name: "host_mode",       type: "bool",  unit: "-",   zh: "主机标志"}   # 作为主机开关（仅随包携带，不影响参数发送）
       - {name: "axis",            type: "int8",  unit: "-",   zh: ""}           # 通道选择：1=俯仰 2=滚转 3=偏航
@@ -47,6 +47,11 @@ structs:
       - {name: "negative_stop",   type: "float", unit: "脉冲", zh: "负限位"}
       - {name: "positive_stop",   type: "float", unit: "脉冲", zh: "正限位"}
       - {name: "force_offset",    type: "int32", unit: "-",   zh: "力偏置"}
+      - {name: "test_duration",  type: "float", unit: "s",   zh: "测试时长"}
+      - {name: "amplitude",      type: "float", unit: "-",   zh: "测试幅值"}
+      - {name: "sine_frequency", type: "float", unit: "Hz",  zh: "正弦频率"}
+      - {name: "sweep_start_frequency", type: "float", unit: "Hz", zh: "扫频起始频率"}
+      - {name: "sweep_end_frequency",   type: "float", unit: "Hz", zh: "扫频终止频率"}
 
   FromController_Periodical_Channel:        # 周期回传，每通道 8B
     fields:
@@ -57,7 +62,7 @@ structs:
 # 数据包
 # ============================================================
 packets:
-  send:                          # UI → 控制器：182B 参数包（整个结构体一次发出）
+  send:                          # UI → 控制器：204B 参数包（整个结构体一次发出）
     repeat: once                 # 默认值/换算表为代码常量：packets.SEND_FIXED / CURVE_SOURCES
     layout:
       - UDP_UI_Send_To_Controller_Parameter

@@ -7,7 +7,7 @@
     启动基线 = 模式1 中当前已配置的通道数据，全黑。
 
 交互规则：
-    - 内层「下载」send_parameters(ch)：提交 + 直接发 182B（无条件，无差异也发）；
+    - 内层「下载」send_parameters(ch)：提交 + 直接发 204B（无条件，无差异也发）；
       编辑中的是用户新建预设 → 该通道数据回写 presets.yaml（出厂不回写）。
     - 内层/外层参数下载：发送前退出当前测试模式，避免设备继续按测试模式运行；
       外层 download_preset(id) 加载全部通道 + 发送，不写文件（决策 17）。
@@ -19,6 +19,7 @@ UI 不持有业务状态、不碰 socket/struct/文件 IO。
 """
 
 import copy
+import math
 from collections import deque
 import re
 from datetime import datetime
@@ -100,6 +101,10 @@ class BackendService(QObject):
         self._editing_preset_id = STARTUP_PRESET_ID
         self._flags = {ch: {"control_mode": 0}
                        for ch in self._channel_indexes}
+        self._test_parameters = {
+            ch: {name: 0.0 for name in packets.TEST_PARAMETER_FIELDS}
+            for ch in self._channel_indexes
+        }
         self._connected = False
         self._host = False                      # 默认不作为主机
         self._tx_log = deque(maxlen=256)         # 已下发包记录（观测/测试用，环形保留）
@@ -306,7 +311,8 @@ class BackendService(QObject):
         values = packets.build_send_values(
             self._sent[ch],
             ch_id["axis"],
-            flags=dict(self._flags[ch], zero_calib=zero_calib, host_mode=self._host))
+            flags=dict(self._flags[ch], zero_calib=zero_calib, host_mode=self._host),
+            test_parameters=self._test_parameters[ch])
         packet = packets.pack_packet(self._send_spec, values)
         self._deliver(packet)
         return True
@@ -325,6 +331,8 @@ class BackendService(QObject):
             return
         self._sent[ch] = copy.deepcopy(self._editing[ch])
         self._flags[ch]["control_mode"] = 0
+        self._test_parameters[ch] = {
+            name: 0.0 for name in packets.TEST_PARAMETER_FIELDS}
         ok = self._build_and_send(ch)
         self.params_ack.emit(ch, ok)
         self.control_mode_changed.emit(ch, 0, False)
@@ -378,10 +386,12 @@ class BackendService(QObject):
         t.start(ZERO_PULSE_CLEAR_DELAY_MS)
 
     @pyqtSlot(int, int)
-    def set_control_mode(self, ch, mode):
+    @pyqtSlot(int, int, object)
+    def set_control_mode(self, ch, mode, test_parameters=None):
         """设置控制模式（0=OFF, 1=抖杆, 2=脉冲, 3=倍脉冲, 4=扫频, 5=正弦, 6=阶跃）。
 
-        该功能已从主机切换按钮中移出，测试页直接可用；mode 会随参数包立即下发，并触发 control_mode_changed。
+        该功能已从主机切换按钮中移出，测试页直接可用；模式及可选测试参数随参数包立即下发，
+        并触发 control_mode_changed。
         """
         if ch not in self._flags:
             self._error("set_control_mode", "通道 %r 尚无完整预设数据，不能下发测试模式" % ch)
@@ -389,6 +399,37 @@ class BackendService(QObject):
         if not 0 <= mode <= 6:
             self._error("set_control_mode", "模式值非法: %d（应为 0..6）" % mode)
             return
+        normalized_parameters = {
+            name: 0.0 for name in packets.TEST_PARAMETER_FIELDS}
+        if mode not in (0, 1) and test_parameters is not None:
+            if not isinstance(test_parameters, dict):
+                self._error("set_control_mode", "测试参数必须是字段映射")
+                return
+            unknown = set(test_parameters) - set(packets.TEST_PARAMETER_FIELDS)
+            missing = set(packets.TEST_PARAMETER_FIELDS) - set(test_parameters)
+            if unknown or missing:
+                self._error(
+                    "set_control_mode",
+                    "测试参数字段不匹配（缺少: %s；未知: %s）"
+                    % (sorted(missing), sorted(unknown)))
+                return
+            try:
+                for name in packets.TEST_PARAMETER_FIELDS:
+                    value = float(test_parameters[name])
+                    if not math.isfinite(value):
+                        raise ValueError("%s 必须是有限数值" % name)
+                    normalized_parameters[name] = value
+            except (TypeError, ValueError) as exc:
+                self._error("set_control_mode", "测试参数无效: %s" % exc)
+                return
+            if normalized_parameters["test_duration"] < 0:
+                self._error("set_control_mode", "测试时长不能为负数")
+                return
+            if (mode == 4 and normalized_parameters["sweep_start_frequency"]
+                    > normalized_parameters["sweep_end_frequency"]):
+                self._error("set_control_mode", "扫频起始频率不能大于终止频率")
+                return
+        self._test_parameters[ch] = normalized_parameters
         self._flags[ch]["control_mode"] = int(mode)
         self._build_and_send(ch)
         self.control_mode_changed.emit(ch, self._flags[ch]["control_mode"], False)
@@ -432,6 +473,8 @@ class BackendService(QObject):
             self._editing[ch] = copy.deepcopy(preset["channels"][ch])
             self._sent[ch] = copy.deepcopy(self._editing[ch])
             self._flags[ch]["control_mode"] = 0
+            self._test_parameters[ch] = {
+                name: 0.0 for name in packets.TEST_PARAMETER_FIELDS}
             ok = self._build_and_send(ch)
             self.params_ack.emit(ch, ok)
             self.control_mode_changed.emit(ch, 0, False)

@@ -119,10 +119,10 @@ pyqt_refactor/
 
 | 槽 | 签名 | 行为 |
 |---|---|---|
-| `send_parameters` | `(channel: int)` | **内层「下载」按钮**：编辑态提交为已下发态 → 直接发 182B（无条件，无差异也发）。若当前编辑的是**用户新建预设** → 同时把该通道完整数据（18 点+参数）回写 presets.yaml（出厂预设不回写，决策 17） |
+| `send_parameters` | `(channel: int)` | **内层「下载」按钮**：编辑态提交为已下发态 → 直接发 204B（无条件，无差异也发）。若当前编辑的是**用户新建预设** → 同时把该通道完整数据（18 点+参数）回写 presets.yaml（出厂预设不回写，决策 17） |
 | `set_packet_field` | `(channel: int, field: str, value)` | 编辑态提交（lineedit 输入完成 / 表格单元格改动 / 快捷按钮），**不下发**；回灌 `state_changed(dirty=…)` |
 | `zero` | `(channel: int)` | 置校零脉冲：置位→发→清两帧（防控制器 latch）；点击即发 |
-| `set_control_mode` | `(channel: int, mode: int)` | **控制模式**：0=OFF 1=抖杆 2=脉冲 3=倍脉冲 4=扫频 5=正弦 6=阶跃；开环测试页先选择模式，再点击「使能」下发，取消使能下发 0；回灌 `control_mode_changed(ch, mode, dirty)` |
+| `set_control_mode` | `(channel: int, mode: int, test_parameters: dict)` | **控制模式**：0=OFF 1=抖杆 2=脉冲 3=倍脉冲 4=扫频 5=正弦 6=阶跃；模式 2–6 同包下发页面上的时长、幅值和频率参数，抖杆及关闭模式的测试参数为 0 |
 | `load_preset` | `(channel: int, preset_id: str)` | 加载预设到**编辑态**（不发，标蓝），并记住当前编辑的预设 id（供内层「下载」判断是否回写）；内层「标准919数据·设置」按钮即此动作（`preset="state_1"`，状态1） |
 | `download_preset` | `(preset_id: str)` | **外层「下载」按钮**：退出当前测试模式，加载预设的俯仰、滚转、偏航数据 → 提交 + 三通道下发 + 回灌（黑色）；**不写预设文件**（决策 17） |
 | `create_preset` | `()` | **新建**：免弹窗复制 模式6 综合力感 数据生成用户新预设（id 自动 `user_+时间戳`，决策 17/22）→ 原子重写 presets.yaml → 广播 `preset_list_changed` |
@@ -154,7 +154,7 @@ pyqt_refactor/
 | 状态 | 含义 | 更新时机 |
 |---|---|---|
 | `editing_data` 编辑态 | 界面 lineedit + 18 点表显示的值 | 启动 = 状态1 数据（俯仰/滚转），基线全黑；输入完成 / 表格改动 / `load_preset` 时更新 |
-| `sent_data` 已下发态 | 控制器当前生效值 | 「下载 / 预设下载」提交时 = 编辑态；**组包只从它取数**（校零脉冲、激振等所有 182B 均如此） |
+| `sent_data` 已下发态 | 控制器当前生效值 | 「下载 / 预设下载」提交时 = 编辑态；**组包只从它取数**（校零脉冲、激振等所有 204B 均如此） |
 
 - **蓝字规则**：单字段 `dirty = editing[field] != sent[field]`，经 `state_changed` / `points_changed` 回灌；UI：**dirty → 蓝色，一致 → 默认黑色**。目的：操作员始终知道"哪些改了没发、下发的是什么"。
 - **范围**：9 个参数 lineedit（比例因子 / 弹簧力 / 阻尼分子 / 阻尼分母 / 摩擦力 / 负限位 / 启动力 / 正限位 / 力偏置，全是报文字段）+ 18 点表格（位置/力各格）。
@@ -188,7 +188,7 @@ pyqt_refactor/
 
 **关键字段约定**：
 - `packets.<包>.layout` 引用的结构体字段顺序 = **字节顺序权威**；字段增删 / 调序必须与控制器 C++ `struct` 同步，工具侧提供「实际字节数 vs 期望字节数」自检。
-- send 包对应 C++ 同名结构体 `UDP_UI_Send_To_Controller_Parameter`：**不是分开发送、没有额外报文头**——整个 182B 一次发出，`axis = 1/2/3` 选通道，各通道共用。
+- send 包对应 C++ 同名结构体 `UDP_UI_Send_To_Controller_Parameter`：**不是分开发送、没有额外报文头**——整个 204B 一次发出，`axis = 1/2/3` 选通道，各通道共用。结构体新增的五个 float 字段依次为 `test_duration`、`amplitude`、`sine_frequency`、`sweep_start_frequency`、`sweep_end_frequency`。
 - 字段自带 `{name, type, count, unit, zh}` 元数据：界面渲染时引用 `zh/unit`；`zh` 为空 = 内部字段（如 axis）。**显示精度不在此配置**——由 `core/format.py:format_value` 统一处理（整值→整数，非整值→2 位，小量<0.01→4 位保护）。
 - 字段**不含 min/max**：参数合法范围由控制器 C++ 侧裁决。
 - 曲线换算（curve_sources / curve 约定）已随决策 18 删除——数据即报文原值。
@@ -278,7 +278,7 @@ presets:
 
 - 左：连接指示灯（`link_state_changed` 驱动，绿"已连接" / 红"未连接"）；右：「作为主机」开关（默认开，后端 `_host` 默认 True）。
 - **主机模式只影响「控制模式」按钮组的使能，不影响 UDP 参数包的正常发送**。关闭主机模式时，`set_control_mode` 直接返回（不发、不改状态）；其余参数编辑、内层/外层 Download、预设 CRUD、校零均不受影响。
-- **主机标志位随 182B 参数包下发**：`protocol.yaml` 的 send 结构体 `host_mode(bool)` 字段，`build_send_values` 读取后端 `_host` 写入。C++ 控制器侧需同步字段顺序/大小。
+- **主机标志位随 204B 参数包下发**：`protocol.yaml` 的 send 结构体 `host_mode(bool)` 字段，`build_send_values` 读取后端 `_host` 写入。C++ 控制器侧需同步字段顺序/大小。
 - **控制模式字段**：原独立的 shaker/backdrive bool 已合并为单字节 `control_mode(int8)`，取值 0=OFF..6=阶跃。开环测试页的通道按钮选择当前测试通道，模式按钮组及对应预设标准曲线随之切换。行为：同模式按钮再次点击 → OFF；不同模式直接切换，不发 OFF。
 - 后端 `set_control_mode(ch, mode)` 对有完整预设数据的通道分别保存和下发模式。
 
@@ -314,7 +314,7 @@ presets:
 
 | 包 | 方向 | 大小 | 结构 |
 |---|---|---|---|
-| `send` | UI → 控制器 | **182 B** | 单通道参数包，`axis` 字段指定通道（1/2） |
+| `send` | UI → 控制器 | **204 B** | 单通道参数包，`axis` 字段指定通道（1/2） |
 | `recv` | 控制器 → UI | **16/24 B** | 2/3 通道 × 8 B（Position `float` + LoadCellForce `float`）；缺少的通道保持 `—` |
 
 `send` 包 = **单一结构体**（对应 C++ `UDP_UI_Send_To_Controller_Parameter`，`#pragma pack(push, 1)` 小端）整体一次发出——没有独立报文头，`axis` 字段 = 通道号 1/2/3，各通道共用同一结构。字节构成：
@@ -322,11 +322,13 @@ presets:
 ```
 host_mode(bool) + axis(int8) + zero_calib(bool) + control_mode(int8)        =   4 B
 pos_pts[18](float) + force_pts[18](float)                                   = 144 B
-scale_factor(int16)                                                         =   2 B
+scale_factor(int32)                                                         =   4 B
 friction(float) + breakout_force(int32) + spring_force(int32)
     + damping_num(int32) + damping_den(int32)
     + negative_stop(float) + positive_stop(float) + force_offset(int32)     =  32 B
-                                                                  合计 = 182 B
+test_duration(float) + amplitude(float) + sine_frequency(float)
+    + sweep_start_frequency(float) + sweep_end_frequency(float)             =  20 B
+                                                                  合计 = 204 B
 ```
 
 > `struct` 格式串**禁止手写**，由 `packets.py` 按字段 `type` 在运行时生成；类型映射：`int8→b, int16→h, int32→i, float→f, bool→?`，字节序 `<`。
@@ -369,9 +371,9 @@ friction(float) + breakout_force(int32) + spring_force(int32)
 
 ## 11. 实现阶段建议（里程碑，非代码）
 
-1. ✅ `core/config_loader` + `packets` + `preset_store` 自检 → 182B / 16B 字节对齐 + 预设读写往返一致（已完成，56 用例）。
+1. ✅ `core/config_loader` + `packets` + `preset_store` 自检 → 204B / 16B 字节对齐 + 预设读写往返一致（已完成，56 用例）。
 2. `core/backend` + `network/udp_manager` → 离屏跑通收发 + 看门狗 + 双状态/脏标记/预设 CRUD。
-3. `ui/*`（硬编码）→ 先 `main.py --no-udp` 看界面，再 Wireshark 比对 182B 下发包字节序（唯一未验证环节）。
+3. `ui/*`（硬编码）→ 先 `main.py --no-udp` 看界面，再 Wireshark 比对 204B 下发包字节序（唯一未验证环节）。
 4. 联调前：presets.yaml 出厂 18 点数据已替换为 `docs/配置.txt` 真实标准数据（state_1..state_7）；PyInstaller 打包（datas 模板 + 启动补齐，决策 16）。
 
-> **联调前必做**：用 Wireshark 比对一次 182B 下发包的字节序，确认与控制器 C++ `struct` 完全一致（含新增 `host` 位）。
+> **联调前必做**：用 Wireshark 比对一次 204B 下发包的字节序，确认与控制器 C++ `struct` 完全一致（含主机标志位和开环测试参数）。

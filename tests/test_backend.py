@@ -139,6 +139,54 @@ class TestDirtyAndSend(BackendTestBase):
         be.set_control_mode(1, 4)      # 通道 1 设为扫频
         self.assertEqual(be._flags[1]["control_mode"], 4)
 
+    def test_control_mode_sends_test_parameters(self):
+        be = self._make_backend()
+        parameters = {
+            "test_duration": 7.5,
+            "amplitude": 0.6,
+            "sine_frequency": 1.2,
+            "sweep_start_frequency": 0.0,
+            "sweep_end_frequency": 0.0,
+        }
+        be.set_control_mode(0, 5, parameters)
+        decoded = packets.unpack_packet(be._send_spec, be._tx_log[-1])
+        self.assertEqual(decoded["control_mode"], 5)
+        for field, value in parameters.items():
+            self.assertAlmostEqual(decoded[field], value)
+
+    def test_invalid_test_parameters_do_not_send(self):
+        be = self._make_backend()
+        be.set_control_mode(0, 5, {
+            "test_duration": float("nan"),
+            "amplitude": 0.5,
+            "sine_frequency": 1.0,
+            "sweep_start_frequency": 0.0,
+            "sweep_end_frequency": 0.0,
+        })
+        self.assertEqual(len(be._tx_log), 0)
+        self.assertEqual(be.get_control_mode(0), 0)
+        self.assertTrue(any(
+            "有限数值" in message for _, message in self.err.records))
+
+    def test_invalid_duration_and_sweep_range_do_not_send(self):
+        be = self._make_backend()
+        common = {
+            "test_duration": 1.0,
+            "amplitude": 0.5,
+            "sine_frequency": 0.0,
+            "sweep_start_frequency": 0.5,
+            "sweep_end_frequency": 5.0,
+        }
+        negative_duration = dict(common, test_duration=-1.0)
+        be.set_control_mode(0, 2, negative_duration)
+        reversed_sweep = dict(
+            common, sweep_start_frequency=5.0, sweep_end_frequency=0.5)
+        be.set_control_mode(0, 4, reversed_sweep)
+
+        self.assertEqual(len(be._tx_log), 0)
+        self.assertEqual(be.get_control_mode(0), 0)
+        self.assertEqual(len(self.err.records), 2)
+
 
 class TestPresets(BackendTestBase):
     def test_load_preset_makes_dirty(self):
@@ -174,13 +222,23 @@ class TestPresets(BackendTestBase):
 
     def test_parameter_download_exits_test_mode(self):
         be = self._make_backend()
-        be.set_control_mode(0, 2)
+        parameters = {
+            "test_duration": 5.0,
+            "amplitude": 0.5,
+            "sine_frequency": 0.5,
+            "sweep_start_frequency": 0.0,
+            "sweep_end_frequency": 0.0,
+        }
+        be.set_control_mode(0, 2, parameters)
         be.download_preset("state_2")
 
         self.assertEqual(be.get_control_mode(0), 0)
         values = packets.unpack_packet(
             be._send_spec, be._tx_log[-3])
         self.assertEqual(values["control_mode"], 0)
+        self.assertEqual(
+            [values[name] for name in packets.TEST_PARAMETER_FIELDS],
+            [0.0] * 5)
 
     def test_create_and_delete_user_preset(self):
         be = self._make_backend()
@@ -231,7 +289,7 @@ class TestPresets(BackendTestBase):
 
 
 class TestUdpLoopback(unittest.TestCase):
-    """UDP 环回集成：单 socket 绑定 + 收帧 + 看门狗上线 + 下发 182B。"""
+    """UDP 环回集成：单 socket 绑定 + 收帧 + 看门狗上线 + 下发 204B。"""
 
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="bcls_udp_"))
@@ -317,12 +375,12 @@ class TestUdpLoopback(unittest.TestCase):
         self.assertEqual(self.telemetry.records[-1][0][2]["Position"], 1.5)
         self.assertEqual(self.telemetry.records[-1][0][2]["LoadCellForce"], -2.0)
 
-        # 2) 改参数 → 内层下载 → helper 收到 182B，axis=1、zero_calib=False
+        # 2) 改参数 → 内层下载 → helper 收到 204B，axis=1、zero_calib=False
         self.be.set_packet_field(0, "friction", 5.5)
         self.be.send_parameters(0)
         self._pump(800)
         self.assertEqual(len(self.rx), 1)
-        self.assertEqual(len(self.rx[0]), 182)
+        self.assertEqual(len(self.rx[0]), 204)
         spec = packets.build_packet_spec(self.bundle.protocol, "send")
         decoded = packets.unpack_packet(spec, self.rx[0])
         self.assertEqual(decoded["axis"], 1)
@@ -465,8 +523,8 @@ class TestApplyNetwork(unittest.TestCase):
         self.be.set_packet_field(0, "friction", 5.5)
         self.be.send_parameters(0)
         self._pump(500)
-        self.assertTrue(any(len(p) == 182 for p in self.rx_new),
-                        "新 target 未收到 182B 参数包")
+        self.assertTrue(any(len(p) == 204 for p in self.rx_new),
+                        "新 target 未收到 204B 参数包")
         self.assertEqual(self.rx_old, [], "旧 target 不应再收到参数包")
 
     def test_occupied_local_port_rejected(self):

@@ -4,7 +4,7 @@
 要点：
     - 类型映射 int8→b / int16→h / int32→i / float→f / bool→?，字节序小端 `<`，
       对应 C++ `#pragma pack(push, 1)`。
-    - `build_packet_spec` 产出逐字段偏移表；PORT2_Send 期望 182B、PORT1_Recv
+    - `build_packet_spec` 产出逐字段偏移表；send 包含开环测试参数，PORT1_Recv
       单通道块 8B，由 selfcheck / backend 断言。
 
 纯函数、零 Qt、零 IO。
@@ -12,13 +12,20 @@
 
 import struct
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 #: 报文字段类型 → struct 字符
 TYPE_MAP = {"int8": "b", "int16": "h", "int32": "i", "float": "f", "bool": "?"}
 
 #: 字节序：小端 + 关闭对齐（等价 #pragma pack(1)）
 BYTE_ORDER = "<"
+TEST_PARAMETER_FIELDS = (
+    "test_duration",
+    "amplitude",
+    "sine_frequency",
+    "sweep_start_frequency",
+    "sweep_end_frequency",
+)
 
 
 class ProtocolError(Exception):
@@ -161,7 +168,8 @@ def parse_recv_frame(spec: PacketSpec, data: bytes, n_channels: int) -> List[dic
 
 def build_send_values(channel_data: Dict[str, Any],
                       axis: int,
-                      flags: Dict[str, bool]) -> Dict[str, Any]:
+                      flags: Dict[str, bool],
+                      test_parameters: Optional[Dict[str, float]] = None) -> Dict[str, Any]:
     """组装 send 包全部字段值（决策 18：预设/编辑数据即报文原值，无换算）。
 
     channel_data 必须是**完整**的某通道数据（10 个字段：friction /
@@ -181,6 +189,12 @@ def build_send_values(channel_data: Dict[str, Any],
     values["zero_calib"] = bool(flags.get("zero_calib", False))
     values["control_mode"] = int(flags.get("control_mode", 0))
     values["host_mode"] = bool(flags.get("host_mode", True))    # 作为主机标志位（默认主机）
+    values.update({name: 0.0 for name in TEST_PARAMETER_FIELDS})
+    if test_parameters is not None:
+        unknown = set(test_parameters) - set(TEST_PARAMETER_FIELDS)
+        if unknown:
+            raise ProtocolError("未知测试参数: %s" % sorted(unknown))
+        values.update(test_parameters)
     return values
 
 

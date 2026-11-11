@@ -50,38 +50,43 @@ class TestPacketSpecLayout(unittest.TestCase):
     def setUpClass(cls):
         cls.bundle, cls.spec = _spec2()
 
-    def test_total_size_182(self):
-        self.assertEqual(self.spec.size, 182)
+    def test_total_size_204(self):
+        self.assertEqual(self.spec.size, 204)
 
     def test_generated_format_string(self):
         # ① 4个1B控制位(host_mode? + axis b + zero_calib? + control_mode b)
         # ② 2×float[18]曲线
         # ③ scale_factor h
         # ④ friction f + 4×int32(breakout/spring/damp_num/damp_den) +
-        #    2×float(neg/pos_stop) + force_offset i
+        #    2×float(neg/pos_stop) + force_offset i + 5×float(test parameters)
         self.assertEqual(
             self.spec.fmt,
-            "<?b?b" + "f" * 36 + "hfiiiiffi")
+            "<?b?b" + "f" * 36 + "ifiiiiffi" + "f" * 5)
 
     def test_field_offsets_match_cpp(self):
         expected = {
             # 字段: (偏移, 字节) —— 与 C++ #pragma pack(1) 逐项核对
-            # 顺序：①控制位(4×1B) → ②曲线(2×72B) → ③比例(h) → ④工艺参数(7×4B)
+            # 顺序：控制位 → 曲线 → 比例/工艺参数 → 5 个开环测试参数
             "host_mode": (0, 1),
             "axis": (1, 1),
             "zero_calib": (2, 1),
             "control_mode": (3, 1),
             "pos_pts": (4, 72),
             "force_pts": (76, 72),
-            "scale_factor": (148, 2),
-            "friction": (150, 4),
-            "breakout_force": (154, 4),
-            "spring_force": (158, 4),
-            "damping_num": (162, 4),
-            "damping_den": (166, 4),
-            "negative_stop": (170, 4),
-            "positive_stop": (174, 4),
-            "force_offset": (178, 4),
+            "scale_factor": (148, 4),
+            "friction": (152, 4),
+            "breakout_force": (156, 4),
+            "spring_force": (160, 4),
+            "damping_num": (164, 4),
+            "damping_den": (168, 4),
+            "negative_stop": (172, 4),
+            "positive_stop": (176, 4),
+            "force_offset": (180, 4),
+            "test_duration": (184, 4),
+            "amplitude": (188, 4),
+            "sine_frequency": (192, 4),
+            "sweep_start_frequency": (196, 4),
+            "sweep_end_frequency": (200, 4),
         }
         by_name = self.spec.fields_by_name()
         self.assertEqual(set(by_name), set(expected))
@@ -131,6 +136,13 @@ class TestPackUnpack(unittest.TestCase):
 
     def test_roundtrip_all_fields(self):
         values = self._sample_values()
+        values.update({
+            "test_duration": 8.5,
+            "amplitude": 0.75,
+            "sine_frequency": 1.25,
+            "sweep_start_frequency": 0.4,
+            "sweep_end_frequency": 4.5,
+        })
         decoded = packets.unpack_packet(self.spec, packets.pack_packet(self.spec, values))
         self.assertEqual(decoded["axis"], 1)
         self.assertEqual(decoded["scale_factor"], 100)
@@ -142,6 +154,11 @@ class TestPackUnpack(unittest.TestCase):
         self.assertEqual(len(decoded["force_pts"]), 18)
         self.assertAlmostEqual(decoded["force_pts"][17], 1.7, places=6)
         self.assertAlmostEqual(decoded["pos_pts"][3], -1.5, places=6)
+        self.assertEqual(decoded["test_duration"], 8.5)
+        self.assertEqual(decoded["amplitude"], 0.75)
+        self.assertEqual(decoded["sine_frequency"], 1.25)
+        self.assertAlmostEqual(decoded["sweep_start_frequency"], 0.4, places=6)
+        self.assertEqual(decoded["sweep_end_frequency"], 4.5)
 
     def test_little_endian_bytes_on_wire(self):
         values = self._sample_values()
@@ -149,14 +166,17 @@ class TestPackUnpack(unittest.TestCase):
         values["scale_factor"] = 100
         packet = packets.pack_packet(self.spec, values)
         # 逐字节检查小端：offset 0 host_mode(默认 True=1)、offset 1 axis int8、
-        # offset 3 control_mode int8、offset 148 scale_factor int16、offset 150 friction float32
+        # offset 3 control_mode int8、offset 148 scale_factor int32、offset 152 friction float32
         self.assertEqual(packet[0:1], struct.pack("<?", True))
         self.assertEqual(packet[1:2], struct.pack("<b", 2))
         self.assertEqual(packet[3:4], struct.pack("<b", 5))
-        self.assertEqual(packet[148:150], struct.pack("<h", 100))
-        self.assertEqual(packet[150:154], struct.pack("<f", 2.5))
-        # force_offset @178（int32，值 905）
-        self.assertEqual(packet[178:182], struct.pack("<i", 905))
+        self.assertEqual(packet[148:152], struct.pack("<i", 100))
+        self.assertEqual(packet[152:156], struct.pack("<f", 2.5))
+        # force_offset @180（int32，值 905）
+        self.assertEqual(packet[180:184], struct.pack("<i", 905))
+        # 测试参数从 @184 开始，均为 float32
+        self.assertEqual(packet[184:204], struct.pack(
+            "<fffff", 0.0, 0.0, 0.0, 0.0, 0.0))
 
     def test_missing_field_raises(self):
         values = self._sample_values()
@@ -192,17 +212,31 @@ class TestBuildSendValues(unittest.TestCase):
         self.assertEqual(data["spring_force"], 0)
         self.assertEqual(data["damping_num"], 0)
 
-    def test_build_full_packet_182(self):
+    def test_build_full_packet_204(self):
         ch0 = self.bundle.channel_by_index(0)
         values = packets.build_send_values(
             _sample_channel_data(),
             ch0["axis"],
             flags={"zero_calib": False, "control_mode": 1})
         packet = packets.pack_packet(self.spec, values)     # 缺字段会在此抛错
-        self.assertEqual(len(packet), 182)
+        self.assertEqual(len(packet), 204)
         self.assertEqual(values["axis"], 1)
         self.assertEqual(values["force_offset"], 905)
         self.assertEqual(values["control_mode"], 1)         # 运行时标志位透传
+        self.assertEqual(
+            [values[name] for name in packets.TEST_PARAMETER_FIELDS],
+            [0.0] * 5)
+
+    def test_build_send_values_accepts_test_parameters(self):
+        ch0 = self.bundle.channel_by_index(0)
+        parameters = dict(zip(
+            packets.TEST_PARAMETER_FIELDS, (6.0, 0.5, 1.0, 0.5, 5.0)))
+        values = packets.build_send_values(
+            _sample_channel_data(), ch0["axis"], flags={},
+            test_parameters=parameters)
+        self.assertEqual(
+            [values[name] for name in packets.TEST_PARAMETER_FIELDS],
+            [6.0, 0.5, 1.0, 0.5, 5.0])
 
     def test_channel_data_keys_are_packet_fields(self):
         # 决策 18：通道数据的键 = send 报文字段名（无换算），多一个少一个都组不齐包

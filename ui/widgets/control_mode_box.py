@@ -10,6 +10,8 @@
 样式：灰色边框容器（与截图底部灰框一致），按钮 checkable，当前选中按钮按下态。
 """
 
+import math
+
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import (QGroupBox, QHBoxLayout, QLineEdit, QLabel,
                              QVBoxLayout, QPushButton, QSizePolicy, QWidget)
@@ -338,6 +340,48 @@ class ControlModeBox(QGroupBox):
 
     def get_mode(self) -> int:
         return self._current_mode
+
+    def get_test_parameters(self, mode: int):
+        """读取开环页所选模式的参数，字段名与 UDP send 结构体一致。"""
+        parameters = {
+            "test_duration": 0.0,
+            "amplitude": 0.0,
+            "sine_frequency": 0.0,
+            "sweep_start_frequency": 0.0,
+            "sweep_end_frequency": 0.0,
+        }
+        if mode in (0, 1):
+            return parameters
+        if mode not in self._time_inputs:
+            raise ValueError("测试模式值非法: %s" % mode)
+
+        def read_number(edit, label):
+            try:
+                value = float(edit.text())
+            except ValueError:
+                raise ValueError("%s必须是数值" % label)
+            if not math.isfinite(value):
+                raise ValueError("%s必须是有限数值" % label)
+            return value
+
+        parameters["test_duration"] = read_number(
+            self._time_inputs[mode], "测试时长")
+        if parameters["test_duration"] < 0:
+            raise ValueError("测试时长不能为负数")
+        parameters["amplitude"] = read_number(
+            self._amp_inputs[mode], "幅值")
+        if mode == 4:
+            parameters["sweep_start_frequency"] = read_number(
+                self._sweep_start_inputs[mode], "扫频起始频率")
+            parameters["sweep_end_frequency"] = read_number(
+                self._sweep_end_inputs[mode], "扫频终止频率")
+            if (parameters["sweep_start_frequency"]
+                    > parameters["sweep_end_frequency"]):
+                raise ValueError("扫频起始频率不能大于终止频率")
+        else:
+            parameters["sine_frequency"] = read_number(
+                self._freq_inputs[mode], "频率")
+        return parameters
 
     def reset(self):
         """切通道或失能前重置为 0。"""

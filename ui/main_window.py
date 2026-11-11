@@ -552,14 +552,25 @@ class MainWindow(QMainWindow):
     def _on_mode_selected(self, mode):
         """灰框点击：选择模式；仅使能后才下发。"""
         if self._test_enable_btn.isChecked() and self._test_channel is not None:
-            self._backend.set_control_mode(self._test_channel, mode)
+            self._send_test_mode(mode)
 
     def _on_test_enable_clicked(self, enabled):
         if self._test_channel is None or self._mode_box.get_mode() == 0:
             self._set_test_enabled(False)
             return
         mode = self._mode_box.get_mode() if enabled else 0
-        self._backend.set_control_mode(self._test_channel, mode)
+        if not self._send_test_mode(mode):
+            self._set_test_enabled(False)
+
+    def _send_test_mode(self, mode):
+        try:
+            parameters = self._mode_box.get_test_parameters(mode)
+        except ValueError as exc:
+            QMessageBox.warning(self, "测试参数无效", str(exc))
+            return False
+        self._backend.set_control_mode(
+            self._test_channel, mode, parameters)
+        return True
 
     def _set_test_enabled(self, enabled):
         self._test_enable_btn.setChecked(enabled)
