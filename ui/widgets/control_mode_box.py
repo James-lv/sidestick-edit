@@ -3,7 +3,7 @@
 
 交互规则（用户 2026-09-09 确认）：
     - 六个按钮对应控制模式 1..6：抖杆/脉冲/倍脉冲/扫频/正弦/阶跃。
-    - 点击某按钮：选择该测试模式，不直接下发；发送由调用方的「使能」控制。
+    - 点击某按钮：选择该测试模式，不直接下发；发送由调用方的「激活」控制。
     - 本组件只负责 UI 状态与 mode_selected 信号；调用方负责把模式值下发给后端
       （backend.set_control_mode(channel, mode)），并回灌当前通道的实时模式。
 
@@ -274,8 +274,6 @@ class ControlModeBox(QGroupBox):
             h.addWidget(freq_column, 0, Qt.AlignTop)
             h.addSpacing(14)
 
-            time_label = QLabel("时间")
-            time_label.setFixedWidth(40)
             duration = self._mode_parameters.get(mode, {}).get("duration")
             time_edit = QLineEdit(
                 "" if duration is None else self._format_number(duration))
@@ -287,13 +285,16 @@ class ControlModeBox(QGroupBox):
                 "}"
             )
             time_edit.setAlignment(Qt.AlignCenter)
-            h.addWidget(time_label, 0, Qt.AlignVCenter)
-            h.addSpacing(2)
-            h.addWidget(time_edit, 0, Qt.AlignVCenter)
-            s_label = QLabel("S")
-            s_label.setFixedWidth(18)
-            s_label.setStyleSheet("padding: 0px;")
-            h.addWidget(s_label, 0, Qt.AlignVCenter)
+            if mode not in (2, 3):
+                time_label = QLabel("时间")
+                time_label.setFixedWidth(40)
+                h.addWidget(time_label, 0, Qt.AlignVCenter)
+                h.addSpacing(2)
+                h.addWidget(time_edit, 0, Qt.AlignVCenter)
+                s_label = QLabel("S")
+                s_label.setFixedWidth(18)
+                s_label.setStyleSheet("padding: 0px;")
+                h.addWidget(s_label, 0, Qt.AlignVCenter)
 
             h.addStretch(1)
             layout.addWidget(row, 0, Qt.AlignVCenter)

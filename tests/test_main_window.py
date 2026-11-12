@@ -103,6 +103,14 @@ class TestMainWindow(unittest.TestCase):
         QApplication.instance().processEvents()
         self.assertTrue(self.win._mode_box.isEnabled())
 
+    def test_pulse_modes_hide_duration_controls_but_keep_configured_duration(self):
+        box = self.win._mode_box
+        for mode in (2, 3):
+            self.assertIsNone(box._time_inputs[mode].parentWidget())
+            self.assertEqual(
+                box.get_test_parameters(mode)["test_duration"],
+                self.bundle.test_modes[mode]["duration"])
+
     def test_mode_buttons_show_absolute_amplitude_frequency_and_tooltips(self):
         box = self.win._mode_box
         for mode, parameters in self.bundle.test_modes.items():
@@ -365,7 +373,7 @@ class TestMainWindow(unittest.TestCase):
         self.win._test_enable_btn.click()
         QApplication.instance().processEvents()
         self.assertFalse(self.win._test_enable_btn.isChecked())
-        self.assertEqual(self.win._test_enable_btn.text(), "使能")
+        self.assertEqual(self.win._test_enable_btn.text(), "激活")
         self.assertEqual(self.backend.get_control_mode(self.win._pitch_index), 0)
 
     def test_mode_button_toggles_selection_and_disables_active_mode(self):
@@ -388,7 +396,7 @@ class TestMainWindow(unittest.TestCase):
         self.assertFalse(button.isChecked())
         self.assertEqual(box.get_mode(), 0)
         self.assertFalse(self.win._test_enable_btn.isChecked())
-        self.assertEqual(self.win._test_enable_btn.text(), "使能")
+        self.assertEqual(self.win._test_enable_btn.text(), "激活")
         self.assertEqual(self.backend.get_control_mode(self.win._pitch_index), 0)
 
     def test_selected_mode_parameters_are_sent_to_controller(self):

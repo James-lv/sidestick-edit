@@ -368,7 +368,7 @@ class MainWindow(QMainWindow):
         )
         self._test_back_btn.clicked.connect(self._on_test_back_clicked)
         bottom_layout.addStretch(1)
-        self._test_enable_btn = QPushButton("使能", bottom_bar)
+        self._test_enable_btn = QPushButton("激活", bottom_bar)
         self._test_enable_btn.setCheckable(True)
         self._test_enable_btn.setMinimumWidth(50)
         self._test_enable_btn.setMinimumHeight(30)
@@ -550,7 +550,7 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot(int)
     def _on_mode_selected(self, mode):
-        """灰框点击：选择模式；仅使能后才下发。"""
+        """灰框点击：选择模式；仅激活后才下发。"""
         if self._test_enable_btn.isChecked() and self._test_channel is not None:
             self._send_test_mode(mode)
 
@@ -574,7 +574,7 @@ class MainWindow(QMainWindow):
 
     def _set_test_enabled(self, enabled):
         self._test_enable_btn.setChecked(enabled)
-        self._test_enable_btn.setText("暂停" if enabled else "使能")
+        self._test_enable_btn.setText("暂停" if enabled else "激活")
 
     def _on_test_back_clicked(self):
         if (self._test_channel is not None
