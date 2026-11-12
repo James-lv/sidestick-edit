@@ -152,8 +152,8 @@ class UdpManager(QObject):
             except queue.Empty:
                 return
             try:
-                print("[UDP TX] target=%s:%d bytes=%d" %
-                      (self._target[0], self._target[1], len(pkt)))
+                print("[UDP TX] target=%s:%d bytes=%d hex=%s" %
+                      (self._target[0], self._target[1], len(pkt), pkt.hex()))
                 sock.sendto(pkt, self._target)
             except OSError as exc:
                 self.socket_error.emit("发送失败（%d 字节）：%s" % (len(pkt), exc))
