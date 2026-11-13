@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -347,7 +348,7 @@ class TestMainWindow(unittest.TestCase):
     # ------------------------------------------------------------------
     # 开环测试模式
     # ------------------------------------------------------------------
-    def test_mode_box_targets_selected_channel(self):
+    def test_mode_switch_deactivates_and_targets_selected_channel(self):
         box = self.win._mode_box
         self.assertEqual(box.get_mode(), 0)
         self.assertTrue(box.isEnabled())
@@ -367,8 +368,15 @@ class TestMainWindow(unittest.TestCase):
 
         box._buttons[5].click()
         QApplication.instance().processEvents()
-        self.assertEqual(self.backend.get_control_mode(self.win._pitch_index), 5)
+        self.assertEqual(self.backend.get_control_mode(self.win._pitch_index), 0)
         self.assertEqual(box.get_mode(), 5)
+        self.assertFalse(self.win._test_enable_btn.isChecked())
+        self.assertEqual(self.win._test_enable_btn.text(), "激活")
+
+        self.win._test_enable_btn.click()
+        QApplication.instance().processEvents()
+        self.assertTrue(self.win._test_enable_btn.isChecked())
+        self.assertEqual(self.backend.get_control_mode(self.win._pitch_index), 5)
 
         self.win._test_enable_btn.click()
         QApplication.instance().processEvents()
@@ -418,17 +426,71 @@ class TestMainWindow(unittest.TestCase):
 
         box._amp_inputs[4].setText("0.6")
         box._time_inputs[4].setText("9")
-        box._sweep_start_inputs[4].setText("0.4")
+        box._sweep_start_inputs[4].setText("0.5")
         box._sweep_end_inputs[4].setText("4.5")
         box._buttons[4].click()
+        self.win._test_enable_btn.click()
         decoded = packets.unpack_packet(
             self.backend._send_spec, self.backend._tx_log[-1])
         self.assertEqual(decoded["control_mode"], 4)
         self.assertEqual(decoded["test_duration"], 9.0)
         self.assertAlmostEqual(decoded["amplitude"], 0.6, places=6)
         self.assertEqual(decoded["sine_frequency"], 0.0)
-        self.assertAlmostEqual(decoded["sweep_start_frequency"], 0.4, places=6)
+        self.assertAlmostEqual(decoded["sweep_start_frequency"], 0.5, places=6)
         self.assertEqual(decoded["sweep_end_frequency"], 4.5)
+
+    def test_out_of_range_test_parameters_show_warning(self):
+        box = self.win._mode_box
+        box._amp_inputs[5].setText("0.09")
+
+        with patch("ui.main_window.QMessageBox.warning") as warning:
+            self.assertFalse(self.win._send_test_mode(5))
+
+        self.assertEqual(
+            warning.call_args.args[2],
+            "输入值超限！幅值正确范围：0.1–0.9")
+
+    def test_test_parameter_ranges_accept_boundaries_and_reject_outliers(self):
+        box = self.win._mode_box
+        box._amp_inputs[5].setText("0.1")
+        box._freq_inputs[5].setText("2")
+        box._time_inputs[5].setText("15")
+        self.assertEqual(box.get_test_parameters(5)["amplitude"], 0.1)
+        self.assertEqual(box.get_test_parameters(5)["sine_frequency"], 2.0)
+        self.assertEqual(box.get_test_parameters(5)["test_duration"], 15.0)
+
+        box._sweep_start_inputs[4].setText("1")
+        box._sweep_end_inputs[4].setText("8")
+        box._time_inputs[4].setText("8")
+        self.assertEqual(box.get_test_parameters(4)["sweep_start_frequency"], 1.0)
+        self.assertEqual(box.get_test_parameters(4)["sweep_end_frequency"], 8.0)
+        self.assertEqual(box.get_test_parameters(4)["test_duration"], 8.0)
+
+        cases = (
+            (box._amp_inputs[5], "0.91", 5,
+             "输入值超限！幅值正确范围：0.1–0.9"),
+            (box._freq_inputs[5], "2.01", 5,
+             "输入值超限！频率正确范围：0.5–2 Hz"),
+            (box._time_inputs[5], "7.99", 5,
+             "输入值超限！测试时长正确范围：8–15 秒"),
+            (box._sweep_start_inputs[4], "0.49", 4,
+             "输入值超限！扫频起始频率正确范围：0.5–1 Hz"),
+            (box._sweep_end_inputs[4], "8.01", 4,
+             "输入值超限！扫频终止频率正确范围：4–8 Hz"),
+        )
+        for edit, value, mode, expected_error in cases:
+            with self.subTest(value=value):
+                box._amp_inputs[mode].setText("0.5")
+                box._time_inputs[mode].setText("10")
+                if mode == 4:
+                    box._sweep_start_inputs[mode].setText("0.5")
+                    box._sweep_end_inputs[mode].setText("5")
+                else:
+                    box._freq_inputs[mode].setText("1")
+                edit.setText(value)
+                with self.assertRaises(ValueError) as raised:
+                    box.get_test_parameters(mode)
+                self.assertEqual(str(raised.exception), expected_error)
 
     def test_mode_box_is_always_available_in_test_page(self):
         box = self.win._mode_box

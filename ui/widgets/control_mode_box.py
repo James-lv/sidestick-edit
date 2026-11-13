@@ -356,32 +356,39 @@ class ControlModeBox(QGroupBox):
         if mode not in self._time_inputs:
             raise ValueError("测试模式值非法: %s" % mode)
 
-        def read_number(edit, label):
+        def read_number(edit, label, minimum=None, maximum=None, unit=""):
             try:
                 value = float(edit.text())
             except ValueError:
                 raise ValueError("%s必须是数值" % label)
             if not math.isfinite(value):
                 raise ValueError("%s必须是有限数值" % label)
+            if ((minimum is not None and value < minimum)
+                    or (maximum is not None and value > maximum)):
+                raise ValueError(
+                    "输入值超限！%s正确范围：%g–%g%s"
+                    % (label, minimum, maximum, unit))
             return value
 
         parameters["test_duration"] = read_number(
-            self._time_inputs[mode], "测试时长")
-        if parameters["test_duration"] < 0:
-            raise ValueError("测试时长不能为负数")
+            self._time_inputs[mode], "测试时长", 8.0, 15.0, " 秒")
         parameters["amplitude"] = read_number(
-            self._amp_inputs[mode], "幅值")
+            self._amp_inputs[mode], "幅值", 0.1, 0.9)
         if mode == 4:
             parameters["sweep_start_frequency"] = read_number(
-                self._sweep_start_inputs[mode], "扫频起始频率")
+                self._sweep_start_inputs[mode], "扫频起始频率", 0.5, 1.0,
+                " Hz")
             parameters["sweep_end_frequency"] = read_number(
-                self._sweep_end_inputs[mode], "扫频终止频率")
+                self._sweep_end_inputs[mode], "扫频终止频率", 4.0, 8.0,
+                " Hz")
             if (parameters["sweep_start_frequency"]
                     > parameters["sweep_end_frequency"]):
                 raise ValueError("扫频起始频率不能大于终止频率")
         else:
+            minimum = 0.5 if mode in (2, 5) else None
+            maximum = 2.0 if mode in (2, 5) else None
             parameters["sine_frequency"] = read_number(
-                self._freq_inputs[mode], "频率")
+                self._freq_inputs[mode], "频率", minimum, maximum, " Hz")
         return parameters
 
     def reset(self):

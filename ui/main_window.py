@@ -550,9 +550,11 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot(int)
     def _on_mode_selected(self, mode):
-        """灰框点击：选择模式；仅激活后才下发。"""
+        """切换模式时先退出当前激活状态，新模式等待用户单独激活。"""
         if self._test_enable_btn.isChecked() and self._test_channel is not None:
-            self._send_test_mode(mode)
+            self._send_test_mode(0)
+            self._mode_box.set_mode(mode)
+            self._set_test_enabled(False)
 
     def _on_test_enable_clicked(self, enabled):
         if self._test_channel is None or self._mode_box.get_mode() == 0:
