@@ -8,8 +8,13 @@ set "PYTHON_EXE="
 set "PYTHON_ARGS="
 
 if exist "%VENV_PYTHON%" (
-    set "PYTHON_EXE=%VENV_PYTHON%"
-    goto :python_found
+    "%VENV_PYTHON%" --version >nul 2>nul
+    if not errorlevel 1 (
+        set "PYTHON_EXE=%VENV_PYTHON%"
+        goto :python_found
+    )
+    echo The existing project environment is invalid or was copied from another computer.
+    echo Recreating the project environment...
 )
 
 where py >nul 2>nul
@@ -31,15 +36,25 @@ if not errorlevel 1 (
     )
 )
 
+for /d %%D in ("%LOCALAPPDATA%\Programs\Python\Python*") do (
+    if exist "%%~fD\python.exe" (
+        "%%~fD\python.exe" --version >nul 2>nul
+        if not errorlevel 1 (
+            set "PYTHON_EXE=%%~fD\python.exe"
+            goto :create_venv
+        )
+    )
+)
+
 echo Python 3 was not found.
 echo Install Python 3, then run this file again.
-echo During installation, enable "Add Python to PATH".
+echo If it is already installed, enable "Add Python to PATH".
 echo Download: https://www.python.org/downloads/
 goto :failed
 
 :create_venv
 echo Preparing the project environment...
-"%PYTHON_EXE%" %PYTHON_ARGS% -m venv "%~dp0.venv"
+"%PYTHON_EXE%" %PYTHON_ARGS% -m venv --clear "%~dp0.venv"
 if errorlevel 1 (
     echo Failed to create the project virtual environment.
     goto :failed
